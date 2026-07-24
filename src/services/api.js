@@ -7,7 +7,7 @@ import { CLIENTS, findClient } from '../data/clients';
 import { TEAM, CURRENT_USER, ROLES } from '../data/team';
 import { SRS_SCHEDULE, REQUIREMENTS, SRS_KPIS } from '../data/srs';
 import { MASTER_DATA, MASTERDATA_KPIS } from '../data/masterdata';
-import { DEV_ITEMS, UAT_CASES, BUGS, TRAINING, GOLIVE_READINESS, DELIVERY_KPIS } from '../data/delivery';
+import { DEV_ITEMS, UAT_CASES, BUGS, TRAINING, GOLIVE_READINESS, LIVE_IMPORTS, PARALLEL_GOLIVE, FINAL_GOLIVE, DELIVERY_KPIS, GOLIVE_KPIS } from '../data/delivery';
 import { ISSUES, RISKS, SIGNOFFS, DOCUMENTS, GOVERNANCE_KPIS } from '../data/governance';
 import { NOTIFICATIONS, ACTIVITY_FEED, UPCOMING, PROJECT_TREND, REVENUE_TREND, PHASE_DISTRIBUTION, HEALTH_MIX, CATEGORY_MIX, WORKLOAD, STAGE_FUNNEL } from '../data/misc';
 
@@ -46,7 +46,11 @@ export const api = {
   getBugs: () => respond(BUGS),
   getTraining: () => respond(TRAINING),
   getGoLiveReadiness: () => respond(GOLIVE_READINESS),
+  getLiveImports: () => respond(LIVE_IMPORTS),
+  getParallelGoLive: () => respond(PARALLEL_GOLIVE),
+  getFinalGoLive: () => respond(FINAL_GOLIVE),
   getDeliveryKpis: () => respond(DELIVERY_KPIS, 120),
+  getGoLiveKpis: () => respond(GOLIVE_KPIS, 120),
 
   // governance
   getIssues: () => respond(ISSUES),

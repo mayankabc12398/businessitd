@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban, Rocket, AlertTriangle, FileSignature, ArrowRight,
   TrendingUp, Database, FlaskConical, GraduationCap,
-  CircleDollarSign, ShieldAlert,
+  CircleDollarSign, ShieldAlert, CheckCircle2, TriangleAlert,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
@@ -27,6 +27,8 @@ export default function Dashboard() {
   const { data: gov } = useApi(() => api.getGovernanceKpis());
   const { data: md } = useApi(() => api.getMasterDataKpis());
   const { data: del } = useApi(() => api.getDeliveryKpis());
+  const { data: srsK } = useApi(() => api.getSrsKpis());
+  const { data: goliveK } = useApi(() => api.getGoLiveKpis());
   const { data: trend } = useApi(() => api.getProjectTrend());
   const { data: revenue } = useApi(() => api.getRevenueTrend());
   const { data: phase } = useApi(() => api.getPhaseDistribution());
@@ -41,7 +43,7 @@ export default function Dashboard() {
   return (
     <div className="page">
       {/* Hero */}
-      <div className="card card-pad anim-fade-up" style={{ background: 'linear-gradient(120deg, #eef1ff 0%, #e8f4fd 45%, #eafaf2 100%)', border: '1px solid #dfe6f7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <div className="card card-pad anim-fade-up hero-banner" style={{ background: 'linear-gradient(120deg, #eef1ff 0%, #e8f4fd 45%, #eafaf2 100%)', border: '1px solid #dfe6f7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div className="flex items-center gap-4">
           <Avatar name={CURRENT_USER.name} hue={0} size="xl" ring />
           <div>
@@ -64,12 +66,20 @@ export default function Dashboard() {
         <MetricCard label="Pending Sign-offs" value={gov?.signoffsPending ?? '—'} tint="lavender" icon={<FileSignature size={19} />} footer={`${gov?.signoffsSigned ?? 0} signed to date`} onClick={() => navigate('/signoff')} />
       </div>
 
-      {/* secondary KPI strip */}
+      {/* lifecycle KPI strip — SRS → Master Data → UAT → Training */}
       <div className="kpi-grid stagger">
-        <MetricCard label="Master Data Imported" value={`${md?.imported ?? 0}/${md?.total ?? 0}`} tint="lemon" icon={<Database size={19} />} footer={`${md?.awaited ?? 0} awaited · ${md?.errors ?? 0} with errors`} onClick={() => navigate('/master-data')} />
+        <MetricCard label="SRS Completed" value={`${srsK?.completed ?? 0}/${srsK?.scheduled ?? 0}`} tint="mint" icon={<FileSignature size={19} />} footer={`${srsK?.signed ?? 0} signed · ${srsK?.gaps ?? 0} gaps`} onClick={() => navigate('/srs')} />
+        <MetricCard label="Master Data Imported" value={`${md?.imported ?? 0}/${md?.total ?? 0}`} tint="lemon" icon={<Database size={19} />} footer={`${md?.awaited ?? 0} pending · ${md?.errors ?? 0} errors`} onClick={() => navigate('/master-data')} />
         <MetricCard label="UAT Modules Passed" value={`${del?.uatPassed ?? 0}/${del?.uatModules ?? 0}`} tint="cyan" icon={<FlaskConical size={19} />} footer={`${del?.bugsOpen ?? 0} open bugs`} onClick={() => navigate('/uat')} />
         <MetricCard label="Training Completed" value={`${del?.trainingDone ?? 0}/${del?.trainingTotal ?? 0}`} tint="pink" icon={<GraduationCap size={19} />} footer="Dept-wise sessions" onClick={() => navigate('/training')} />
-        <MetricCard label="High / Critical Risks" value={gov?.risksHigh ?? '—'} tint="rose" icon={<ShieldAlert size={19} />} footer={`${gov?.risksOpen ?? 0} risks open`} onClick={() => navigate('/risks')} />
+      </div>
+
+      {/* go-live & governance KPI strip */}
+      <div className="kpi-grid stagger">
+        <MetricCard label="Ready for Go-Live" value={goliveK?.readyProjects ?? '—'} tint="green" icon={<Rocket size={19} />} footer={`${goliveK?.parallelRunning ?? 0} in parallel run`} onClick={() => navigate('/go-live')} />
+        <MetricCard label="Go-Live Completed" value={goliveK?.finalLive ?? '—'} tint="mint" icon={<CheckCircle2 size={19} />} footer={`${goliveK?.certsIssued ?? 0} certificates issued`} onClick={() => navigate('/go-live')} />
+        <MetricCard label="Open Issues" value={gov?.issuesOpen ?? '—'} tint="peach" icon={<ShieldAlert size={19} />} footer={`${gov?.issuesCritical ?? 0} critical`} onClick={() => navigate('/issues')} />
+        <MetricCard label="High / Critical Risks" value={gov?.risksHigh ?? '—'} tint="rose" icon={<TriangleAlert size={19} />} footer={`${gov?.risksOpen ?? 0} risks open`} onClick={() => navigate('/risks')} />
       </div>
 
       {/* charts row */}

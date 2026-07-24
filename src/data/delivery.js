@@ -140,6 +140,66 @@ export const GOLIVE_READINESS = (() => {
   });
 })();
 
+// ---- Module 10: Live Data Import (production master import at go-live) ----
+const LIVE_MASTERS = ['Doctors / Consultants', 'Services & Tariff', 'Pharmacy Items', 'Lab Tests', 'Patients (Active)', 'Outstanding Bills', 'Stock / Inventory', 'Insurance Panels', 'Ledger Balances'];
+const goingLive = PROJECTS.filter((p) => ['migration', 'parallel', 'golive', 'support', 'closure'].includes(p.currentStage) || p.status === 'Completed');
+export const LIVE_IMPORTS = (() => {
+  const r = makeRand(990133);
+  const rows = [];
+  let n = 1;
+  (goingLive.length ? goingLive : PROJECTS.slice(0, 4)).forEach((p) => {
+    const masters = [...LIVE_MASTERS].sort(() => r.next() - 0.5).slice(0, r.int(5, 8));
+    masters.forEach((m) => {
+      const total = r.int(50, 18000);
+      const failed = r.chance(0.4) ? r.int(0, Math.floor(total * 0.02)) : 0;
+      const done = r.chance(0.7);
+      rows.push({
+        id: `LIM-${pad(n++)}`, projectCode: p.code, projectName: p.name.split(' — ')[0], master: m,
+        importDate: done ? isoDate(2026, r.int(6, 8), r.int(1, 27)) : null,
+        importedBy: r.pick(['Karthik Rao', 'Sana Qureshi', 'Vikram Menon']),
+        records: done ? total : 0, failed,
+        validation: done ? (failed > 0 ? 'Errors' : 'Passed') : 'Pending',
+        status: done ? (failed > 0 ? 'Imported (errors)' : 'Imported') : 'Scheduled',
+      });
+    });
+  });
+  return rows;
+})();
+
+// ---- Module 11: Parallel Go-Live (transition monitoring) ----
+export const PARALLEL_GOLIVE = (() => {
+  const r = makeRand(1010144);
+  return PROJECTS.filter((p) => ['parallel', 'golive', 'support', 'closure'].includes(p.currentStage) || p.status === 'Completed' || ['uat', 'training', 'migration'].includes(p.currentStage)).slice(0, 6).map((p) => {
+    const days = r.int(5, 21);
+    const logged = r.int(2, 24);
+    return {
+      id: `PGL-${p.code}`, projectCode: p.code, projectName: p.name.split(' — ')[0],
+      startDate: isoDate(2026, r.int(6, 7), r.int(1, 20)), endDate: isoDate(2026, r.int(7, 8), r.int(21, 28)),
+      days, issuesLogged: logged, issuesResolved: r.int(Math.floor(logged * 0.5), logged),
+      supportEngineer: 'Farhan Shaikh', dailyStatus: r.pick(['Stable', 'Minor issues', 'Monitoring', 'Critical watch']),
+      clientFeedback: r.int(35, 49) / 10,
+      status: r.pick(['Running', 'Stabilising', 'Completed']),
+    };
+  });
+})();
+
+// ---- Module 12: Final Go-Live (production cutover record) ----
+export const FINAL_GOLIVE = (() => {
+  const r = makeRand(1020155);
+  return PROJECTS.filter((p) => ['golive', 'support', 'closure'].includes(p.currentStage) || p.status === 'Completed' || ['parallel'].includes(p.currentStage)).slice(0, 6).map((p) => {
+    const live = p.status === 'Completed' || ['golive', 'support', 'closure'].includes(p.currentStage);
+    const pending = live ? r.int(0, 4) : r.int(3, 8);
+    return {
+      id: `FGL-${p.code}`, projectCode: p.code, projectName: p.name.split(' — ')[0],
+      goLiveDate: live ? isoDate(2026, r.int(6, 8), r.int(1, 27)) : p.targetGoLive,
+      approvedBy: live ? 'Client CIO' : '—', modulesLive: live ? p.modules.length : 0, modulesTotal: p.modules.length,
+      pendingItems: pending, certificate: live && pending === 0 ? 'Issued' : live ? 'Draft' : '—',
+      signoff: live && pending === 0 ? 'Signed' : live ? 'Pending' : '—',
+      status: live ? (pending === 0 ? 'Live' : 'Live (with punch-list)') : 'Scheduled',
+    };
+  });
+})();
+
 export const DELIVERY_KPIS = {
   devTotal: DEV_ITEMS.length,
   devDeployed: DEV_ITEMS.filter((d) => d.status === 'Deployed').length,
@@ -149,4 +209,14 @@ export const DELIVERY_KPIS = {
   bugsCritical: BUGS.filter((b) => b.severity === 'Critical' && !['Closed'].includes(b.status)).length,
   trainingDone: TRAINING.filter((t) => t.status === 'Completed').length,
   trainingTotal: TRAINING.length,
+};
+
+export const GOLIVE_KPIS = {
+  readyProjects: GOLIVE_READINESS.filter((r) => r.status === 'Ready').length,
+  liveImports: LIVE_IMPORTS.filter((l) => l.status.startsWith('Imported')).length,
+  liveImportsTotal: LIVE_IMPORTS.length,
+  liveRecords: LIVE_IMPORTS.reduce((s, l) => s + l.records, 0),
+  parallelRunning: PARALLEL_GOLIVE.filter((p) => p.status !== 'Completed').length,
+  finalLive: FINAL_GOLIVE.filter((f) => f.status.startsWith('Live')).length,
+  certsIssued: FINAL_GOLIVE.filter((f) => f.certificate === 'Issued').length,
 };

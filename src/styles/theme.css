@@ -194,3 +194,64 @@ img { max-width: 100%; display: block; }
 
 .hide-sm { display: initial; }
 @media (max-width: 720px) { .hide-sm { display: none !important; } }
+
+/* ============================================================
+   DARK MODE — token overrides (toggled via <html data-theme="dark">)
+   ============================================================ */
+:root[data-theme="dark"] {
+  --bg: #0f1420;
+  --bg-gradient: linear-gradient(160deg, #10151f 0%, #0f141e 40%, #12111c 100%);
+  --surface: #171d2b;
+  --surface-2: #1b2233;
+  --surface-3: #222b3e;
+  --surface-glass: rgba(20, 26, 39, 0.82);
+
+  --border: #2a3346;
+  --border-strong: #37425a;
+  --border-focus: #5b67d8;
+
+  --text-1: #e9edf6;
+  --text-2: #a4aec3;
+  --text-3: #717c94;
+
+  --primary-soft: #232a49;
+  --primary-softer: #1b2038;
+  --primary-ring: rgba(102, 114, 241, 0.34);
+
+  --success-soft: #10301f; --success-ink: #57d98a;
+  --warning-soft: #322610; --warning-ink: #f7c04a;
+  --danger-soft: #381c1c; --danger-ink: #f4837d;
+  --info-soft: #10293b; --info-ink: #5ab8e8;
+  --pending-soft: #241a3c; --pending-ink: #bb9ff2;
+  --neutral-soft: #252d3e; --neutral-ink: #a4aec3;
+
+  --tint-blue: #17294a;      --tint-blue-ink: #82a9ff;
+  --tint-cyan: #103545;      --tint-cyan-ink: #47c6e6;
+  --tint-mint: #103527;      --tint-mint-ink: #44d39c;
+  --tint-lavender: #241b46;  --tint-lavender-ink: #b79cf5;
+  --tint-peach: #3a2517;     --tint-peach-ink: #f6a26c;
+  --tint-pink: #3a1b2c;      --tint-pink-ink: #f174aa;
+  --tint-lemon: #322a11;     --tint-lemon-ink: #e6c454;
+  --tint-indigo: #1e2350;    --tint-indigo-ink: #98a3f5;
+  --tint-green: #123320;     --tint-green-ink: #6fd18c;
+  --tint-orange: #33240f;    --tint-orange-ink: #f0a74c;
+  --tint-sky: #102a40;       --tint-sky-ink: #64b7f0;
+  --tint-rose: #3a1d1a;      --tint-rose-ink: #f0877f;
+
+  --chart-grid: #262f42;
+  --chart-axis: #3a4459;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.45), 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.5), 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme="dark"] body { background: var(--bg); }
+:root[data-theme="dark"] ::selection { background: var(--primary-soft); color: var(--primary); }
+:root[data-theme="dark"] * { scrollbar-color: #3a4459 transparent; }
+:root[data-theme="dark"] *::-webkit-scrollbar-thumb { background: #3a4459; }
+:root[data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: #4a566e; }
+/* soften the bright dashboard hero banner in dark mode */
+:root[data-theme="dark"] .hero-banner { background: linear-gradient(120deg, #1b2140 0%, #12283a 45%, #12291f 100%) !important; border-color: #2a3346 !important; }

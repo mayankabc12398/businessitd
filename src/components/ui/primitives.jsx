@@ -1,10 +1,10 @@
 // Small shared primitives: Avatar, Badge, Chip, EmptyState, Skeleton,
 // Detail rows, Accordion, ProgressBar, Dropdown menu.
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Inbox } from 'lucide-react';
 import { AVATAR_HUES } from '../../data/team';
 import { initials, statusTone } from '../../utils/format';
-import { useClickOutside } from '../../hooks/useApi';
 
 export function Avatar({ name, hue = 0, size = 'md', ring = false, src }) {
   const [from, to] = AVATAR_HUES[hue % AVATAR_HUES.length];
@@ -100,15 +100,54 @@ export function Accordion({ title, badge, defaultOpen = false, children }) {
 }
 
 // Dropdown action menu — trigger renders children; items = [{label, icon, onClick, danger, sep}]
+// The menu is portaled to <body> with fixed positioning so it never gets
+// clipped by scroll containers (e.g. the DataTable scroller) or overlapped
+// by sibling rows' stacking contexts.
 export function Dropdown({ trigger, items, align = 'right' }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useClickOutside(ref, () => setOpen(false));
+  const [rect, setRect] = useState(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const close = () => setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
+  const toggle = (e) => {
+    e.stopPropagation();
+    if (!open && triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
+    setOpen((o) => !o);
+  };
+
+  const menuStyle = rect
+    ? {
+        position: 'fixed',
+        top: Math.round(rect.bottom + 6),
+        ...(align === 'left'
+          ? { left: Math.round(rect.left) }
+          : { right: Math.round(Math.max(8, window.innerWidth - rect.right)) }),
+        zIndex: 1000,
+      }
+    : { position: 'fixed', zIndex: 1000 };
+
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-      <span onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>{trigger}</span>
-      {open && (
-        <div className="menu-pop" style={{ top: 'calc(100% + 6px)', [align]: 0 }}>
+    <span ref={triggerRef} style={{ display: 'inline-flex' }} onClick={toggle}>
+      {trigger}
+      {open && createPortal(
+        <div ref={menuRef} className="menu-pop" style={menuStyle}>
           {items.map((it, i) =>
             it.sep ? (
               <div key={i} className="menu-sep" />
@@ -126,9 +165,10 @@ export function Dropdown({ trigger, items, align = 'right' }) {
               </button>
             )
           )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </span>
   );
 }
 

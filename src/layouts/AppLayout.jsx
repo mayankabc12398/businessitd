@@ -5,7 +5,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Search, Bell, PanelLeftClose, PanelLeftOpen, Menu as MenuIcon, Plus,
   LogOut, User, Settings, HelpCircle, ChevronDown, Sparkles, CheckCheck,
-  AlertTriangle, Info, ClipboardList, X, Activity,
+  AlertTriangle, Info, ClipboardList, X, Activity, Sun, Moon,
 } from 'lucide-react';
 import { MENU, FLAT_MENU } from '../config/menu';
 import { PROJECTS } from '../data/projects';
@@ -108,6 +108,27 @@ function GlobalSearch() {
         </div>
       )}
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem('hims-theme');
+    const isDark = saved === 'dark';
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    setDark(isDark);
+  }, []);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.dataset.theme = next ? 'dark' : 'light';
+    localStorage.setItem('hims-theme', next ? 'dark' : 'light');
+  };
+  return (
+    <button className="icon-btn" onClick={toggle} title={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
+      {dark ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
   );
 }
 
@@ -290,6 +311,7 @@ export default function AppLayout() {
           <GlobalSearch />
           <div style={{ flex: 1 }} />
           <QuickActions />
+          <ThemeToggle />
           <NotificationsPop />
           <div style={{ width: 1, height: 26, background: 'var(--border)' }} className="hide-mobile" />
           <ProfilePop />

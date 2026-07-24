@@ -47,6 +47,9 @@ export default function Projects() {
   const [healthF, setHealthF] = useState('All');
   const [active, setActive] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [extra, setExtra] = useState([]);
+
+  const allProjects = useMemo(() => [...extra, ...(projects || [])], [extra, projects]);
 
   // deep-links from global search / quick actions
   useEffect(() => {
@@ -55,13 +58,33 @@ export default function Projects() {
     if (code && projects) { const p = projects.find((x) => x.code === code); if (p) setActive(p); setParams({}, { replace: true }); }
   }, [params, projects, setParams]);
 
-  const filtered = useMemo(() => {
-    if (!projects) return [];
-    return projects.filter((p) =>
-      (statusF === 'All' || p.status === statusF) &&
-      (healthF === 'All' || p.health === healthF)
-    );
-  }, [projects, statusF, healthF]);
+  const filtered = useMemo(() => allProjects.filter((p) =>
+    (statusF === 'All' || p.status === statusF) &&
+    (healthF === 'All' || p.health === healthF)
+  ), [allProjects, statusF, healthF]);
+
+  const addProject = (f) => {
+    const start = f.startDate || '2026-07-24';
+    const milestones = LIFECYCLE.map((s, i) => ({
+      key: s.key, label: s.label, tint: s.tint, seq: i + 1, planStart: start, planEnd: f.targetGoLive || start,
+      actualEnd: i === 0 ? start : null, status: i === 0 ? 'Completed' : i === 1 ? 'In Progress' : 'Pending',
+      owner: 'PM', signoff: i === 0 ? 'Signed' : 'Pending',
+    }));
+    const proj = {
+      code: `PRJ-2026-${String(120 + allProjects.length)}`, name: f.name, clientId: f.clientId,
+      category: 'Mid-Market', implType: f.implType, priority: f.priority, status: f.status || 'Planning',
+      contractValue: Number(f.contractValue) || 0, poNumber: f.poNumber || '—', poDate: start,
+      startDate: start, targetGoLive: f.targetGoLive || start, currency: f.currency || 'INR',
+      pm: f.pm || 'U-01', fc: 'U-02', tc: 'U-05', engineer: 'U-06', support: 'U-09', salesPerson: 'U-12',
+      currentStage: 'registration', health: 'On Track', riskLevel: 'Low', users: 0,
+      modules: f.modules || [], interfaces: [], remarks: 'Newly registered project — lifecycle plan auto-generated.',
+      progress: Math.round((1.5 / LIFECYCLE.length) * 100), milestones, milestonesDone: 1, milestonesTotal: milestones.length,
+      expectedCompletion: f.targetGoLive || start, openIssues: 0, pendingSignoffs: 0,
+    };
+    setExtra((prev) => [proj, ...prev]);
+    toast.success('Project registered', `${f.name} · ${proj.code}`);
+    setShowNew(false);
+  };
 
   const columns = [
     {
@@ -142,7 +165,7 @@ export default function Projects() {
       )}
 
       <ProjectDrawer project={active} onClose={() => setActive(null)} />
-      <NewProjectDrawer open={showNew} onClose={() => setShowNew(false)} onSaved={(name) => { toast.success('Project registered', name); setShowNew(false); }} />
+      <NewProjectDrawer open={showNew} onClose={() => setShowNew(false)} onSaved={addProject} />
     </div>
   );
 }
@@ -338,7 +361,7 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
           {step > 0 && <button className="btn btn-outline" onClick={() => setStep((s) => s - 1)}>Back</button>}
           {step < STEPS.length - 1
             ? <button className="btn btn-primary" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>Continue <ArrowRight size={14} /></button>
-            : <button className="btn btn-primary" onClick={() => onSaved(f.name || 'New Project')}><CheckCircle2 size={14} /> Register Project</button>}
+            : <button className="btn btn-primary" onClick={() => onSaved({ ...f, name: f.name || 'New Project' })}><CheckCircle2 size={14} /> Register Project</button>}
         </>
       }
     >
