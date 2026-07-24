@@ -3,8 +3,10 @@ import { useState, useMemo, Fragment } from 'react';
 import { TriangleAlert, Plus, ShieldAlert, Activity } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Skeleton, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Skeleton, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
+import { PROJECTS } from '../data/projects';
+import { RISK_TYPES } from '../data/masters';
 
 const levelTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 const cellColor = (score) => score >= 16 ? 'var(--danger)' : score >= 10 ? 'var(--warning)' : score >= 5 ? 'var(--info)' : 'var(--success)';
@@ -13,17 +15,33 @@ export default function Risks() {
   const { data: rows, loading } = useApi(() => api.getRisks());
   const toast = useToast();
   const [levelF, setLevelF] = useState('All');
+  const [show, setShow] = useState(false);
+  const [extra, setExtra] = useState([]);
 
-  const filtered = useMemo(() => (rows || []).filter((r) => levelF === 'All' || r.level === levelF), [rows, levelF]);
-  const open = (rows || []).filter((r) => r.status !== 'Closed');
+  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const filtered = useMemo(() => allRows.filter((r) => levelF === 'All' || r.level === levelF), [allRows, levelF]);
+  const open = allRows.filter((r) => r.status !== 'Closed');
   const high = open.filter((r) => ['High', 'Critical'].includes(r.level)).length;
 
   // build 5x5 heatmap counts (probability rows 5→1, impact cols 1→5)
   const heat = useMemo(() => {
     const grid = {};
-    (rows || []).forEach((r) => { const k = `${r.probability}-${r.impact}`; grid[k] = (grid[k] || 0) + 1; });
+    allRows.forEach((r) => { const k = `${r.probability}-${r.impact}`; grid[k] = (grid[k] || 0) + 1; });
     return grid;
-  }, [rows]);
+  }, [allRows]);
+
+  const addRisk = (v) => {
+    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const prob = Number(v.probability); const impact = Number(v.impact); const score = prob * impact;
+    const level = score >= 16 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low';
+    setExtra((prev) => [{
+      id: `RSK-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      title: v.title, category: v.category, probability: prob, impact, score, level,
+      owner: v.owner, status: 'Open', mitigation: v.mitigation || 'Mitigation plan to be defined.', target: v.target || '2026-09-01',
+    }, ...prev]);
+    toast.success('Risk added', `${v.title} · ${level}`);
+    setShow(false);
+  };
 
   const columns = [
     { key: 'id', header: 'ID', width: 90, render: (r) => <span className="mono t-xs ink-3">{r.id}</span> },
@@ -41,7 +59,7 @@ export default function Risks() {
     <div className="page">
       <PageHeader icon={<TriangleAlert size={22} />} tint="orange" title="Risk Register" desc="Probability × impact scoring, heatmap and mitigation plans"
         crumbs={[{ label: 'Governance' }, { label: 'Risks' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Add risk')}><Plus size={15} /> Add Risk</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Plus size={15} /> Add Risk</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Open Risks" value={open.length} tint="orange" icon={<TriangleAlert size={19} />} footer={`${(rows||[]).length} total`} />
@@ -77,6 +95,19 @@ export default function Risks() {
         <DataTable columns={columns} rows={filtered} loading={loading} exportName="risks.csv" searchPlaceholder="Search risks…" pageSize={10}
           toolbarLeft={<div className="flex items-center gap-2 flex-wrap">{['All', 'Critical', 'High', 'Medium', 'Low'].map((l) => <Chip key={l} active={levelF === l} onClick={() => setLevelF(l)}>{l}</Chip>)}</div>} />
       </div>
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Add Risk" subtitle="Score a risk on probability × impact"
+        submitLabel="Add Risk" onSubmit={addRisk}
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'title', label: 'Risk', required: true, full: true, placeholder: 'Describe the risk…' },
+          { name: 'category', label: 'Category', type: 'select', required: true, options: RISK_TYPES },
+          { name: 'owner', label: 'Owner', type: 'select', required: true, options: ['Rahul Sharma', 'Priya Nair', 'Amit Verma', 'Karthik Rao', 'Sana Qureshi', 'Farhan Shaikh'] },
+          { name: 'probability', label: 'Probability (1–5)', type: 'select', required: true, default: '3', options: ['1', '2', '3', '4', '5'] },
+          { name: 'impact', label: 'Impact (1–5)', type: 'select', required: true, default: '3', options: ['1', '2', '3', '4', '5'] },
+          { name: 'target', label: 'Target Date', type: 'date' },
+          { name: 'mitigation', label: 'Mitigation Plan', type: 'textarea', full: true, rows: 3, placeholder: 'How will this be mitigated?' },
+        ]} />
       <style>{`@media (max-width: 900px){ .risk-two{ grid-template-columns:1fr !important; } }`}</style>
     </div>
   );

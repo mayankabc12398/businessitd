@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { Handshake, FileText, CheckCircle2, Users, Layers, Plus } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Drawer, Badge, Avatar, DetailRow, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Drawer, Badge, Avatar, DetailRow, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { HIMS_MODULES } from '../data/masters';
+import { PROJECTS } from '../data/projects';
 import { findClient } from '../data/clients';
 import { findUser } from '../data/team';
 
@@ -17,6 +18,7 @@ export default function Kickoff() {
   const { data: projects, loading } = useApi(() => api.getProjects());
   const toast = useToast();
   const [active, setActive] = useState(null);
+  const [show, setShow] = useState(false);
 
   const rows = (projects || []).filter((p) => p.status !== 'Completed');
   const koDone = rows.filter((p) => koStatus(p) === 'Done').length;
@@ -36,7 +38,7 @@ export default function Kickoff() {
     <div className="page">
       <PageHeader icon={<Handshake size={22} />} tint="sky" title="Scope & Kick-off" desc="Purchase orders, purchased scope confirmation and kick-off meetings"
         crumbs={[{ label: 'Delivery' }, { label: 'Scope & Kick-off' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Schedule kick-off')}><Plus size={15} /> Schedule Kick-off</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Plus size={15} /> Schedule Kick-off</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Active Scopes" value={rows.length} tint="sky" icon={<Layers size={19} />} footer="Confirmed & in delivery" />
@@ -78,6 +80,17 @@ export default function Kickoff() {
           </div>
         )}
       </Drawer>
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"
+        submitLabel="Schedule" onSubmit={(v) => { const p = PROJECTS.find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setShow(false); }}
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
+          { name: 'mode', label: 'Mode', type: 'select', default: 'On-site', options: ['On-site', 'Virtual', 'Hybrid'] },
+          { name: 'participants', label: 'Participants', type: 'tags', full: true, placeholder: 'Add attendees and press Enter…' },
+          { name: 'agenda', label: 'Agenda', type: 'textarea', full: true, rows: 3, placeholder: 'Meeting agenda…' },
+          { name: 'nextMeeting', label: 'Next Meeting', type: 'date' },
+        ]} />
     </div>
   );
 }

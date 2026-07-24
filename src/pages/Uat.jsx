@@ -72,7 +72,7 @@ export default function Uat() {
     <div className="page">
       <PageHeader icon={<FlaskConical size={22} />} tint="lavender" title="Testing & UAT" desc="Module test coverage, client UAT sign-off and bug tracker"
         crumbs={[{ label: 'Build & Validate' }, { label: 'UAT' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info(tab === 'uat' ? 'Add UAT round' : 'Log bug')}><Plus size={15} /> {tab === 'uat' ? 'New UAT Round' : 'Log Bug'}</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Plus size={15} /> {tab === 'uat' ? 'New UAT Round' : 'Log Bug'}</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Modules in UAT" value={kpis?.uatModules ?? '—'} tint="lavender" icon={<FlaskConical size={19} />} footer={`${kpis?.uatPassed ?? 0} fully passed`} />
@@ -89,6 +89,27 @@ export default function Uat() {
       {tab === 'uat'
         ? <DataTable columns={uatCols} rows={fCases} loading={loading} exportName="uat-coverage.csv" searchPlaceholder="Search modules…" pageSize={15} />
         : <DataTable columns={bugCols} rows={fBugs} loading={bl} exportName="bugs.csv" searchPlaceholder="Search bugs…" pageSize={15} />}
+
+      {tab === 'uat' ? (
+        <FormDrawer open={show} onClose={() => setShow(false)} title="New UAT Round" subtitle="Create a module UAT test cycle"
+          submitLabel="Create Round" onSubmit={addUat}
+          fields={[
+            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+            { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
+            { name: 'total', label: 'Test Cases', type: 'number', required: true, placeholder: '0' },
+            { name: 'uatDate', label: 'UAT Date', type: 'date' },
+          ]} />
+      ) : (
+        <FormDrawer open={show} onClose={() => setShow(false)} title="Log Bug" subtitle="Report a defect found during testing"
+          submitLabel="Log Bug" onSubmit={addBug}
+          fields={[
+            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+            { name: 'title', label: 'Bug Summary', required: true, full: true, placeholder: 'Describe the defect…' },
+            { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
+            { name: 'severity', label: 'Severity', type: 'select', required: true, default: 'Medium', options: SEVERITIES },
+            { name: 'assignedTo', label: 'Assign To', type: 'select', required: true, options: ['Sana Qureshi', 'Karthik Rao', 'Vikram Menon'] },
+          ]} />
+      )}
     </div>
   );
 }

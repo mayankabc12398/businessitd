@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { Rocket, CheckCircle2, Clock, Circle, CalendarClock, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, Drawer, Badge, ProgressRing, ProgressBar, Skeleton, useToast } from '../components/ui';
+import { PageHeader, MetricCard, Drawer, Badge, ProgressRing, ProgressBar, Skeleton, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
+import { PROJECTS } from '../data/projects';
 
 const CHK_ICON = { Done: <CheckCircle2 size={15} color="var(--success)" />, 'In Progress': <Clock size={15} color="var(--info)" />, Pending: <Circle size={14} color="var(--text-3)" /> };
 const readyTone = (s) => ({ Ready: 'success', 'Almost Ready': 'warning', Preparing: 'info' }[s] || 'neutral');
@@ -13,6 +14,7 @@ export default function GoLive() {
   const { data: rows, loading } = useApi(() => api.getGoLiveReadiness());
   const toast = useToast();
   const [active, setActive] = useState(null);
+  const [show, setShow] = useState(false);
 
   const ready = (rows || []).filter((r) => r.status === 'Ready').length;
   const soon = (rows || []).filter((r) => r.status === 'Almost Ready').length;
@@ -22,7 +24,7 @@ export default function GoLive() {
     <div className="page">
       <PageHeader icon={<Rocket size={22} />} tint="green" title="Go-Live Readiness" desc="Readiness checklist, data migration & cutover across the portfolio"
         crumbs={[{ label: 'Build & Validate' }, { label: 'Go-Live' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Cutover plan')}><ShieldCheck size={15} /> Cutover Plan</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><ShieldCheck size={15} /> Cutover Plan</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Projects Preparing" value={rows?.length ?? '—'} tint="green" icon={<Rocket size={19} />} footer="Active go-live tracks" />
@@ -68,6 +70,18 @@ export default function GoLive() {
           </div>
         )}
       </Drawer>
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Create Cutover Plan" subtitle="Define the go-live cutover window and steps"
+        submitLabel="Save Plan" submitIcon={<ShieldCheck size={14} />}
+        onSubmit={(v) => { const p = PROJECTS.find((x) => x.code === v.projectCode); toast.success('Cutover plan saved', p ? p.name.split(' — ')[0] : v.projectCode); setShow(false); }}
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'cutoverDate', label: 'Cutover Date', type: 'date', required: true },
+          { name: 'window', label: 'Downtime Window', placeholder: 'e.g. 02:00 – 06:00' },
+          { name: 'lead', label: 'Cutover Lead', type: 'select', options: ['Rahul Sharma', 'Priya Nair', 'Karthik Rao'] },
+          { name: 'rollback', label: 'Rollback Owner', placeholder: 'Owner name' },
+          { name: 'steps', label: 'Cutover Steps', type: 'textarea', full: true, rows: 4, placeholder: 'List the sequenced cutover steps…' },
+        ]} />
     </div>
   );
 }

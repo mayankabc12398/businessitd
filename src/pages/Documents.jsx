@@ -3,9 +3,10 @@ import { useState, useMemo } from 'react';
 import { FolderOpen, Upload, FileText, FileSpreadsheet, File, Download, Share2, Eye } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, Chip, Dropdown, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, Chip, Dropdown, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { DOC_CATEGORIES } from '../data/masters';
+import { PROJECTS } from '../data/projects';
 
 const extIcon = (ext) => ext === 'xlsx' ? <FileSpreadsheet size={16} color="var(--success)" /> : ext === 'docx' ? <FileText size={16} color="var(--info)" /> : <File size={16} color="var(--danger)" />;
 const fmtSize = (kb) => kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
@@ -15,10 +16,26 @@ export default function Documents() {
   const toast = useToast();
   const [catF, setCatF] = useState('All');
   const [proj, setProj] = useState('All');
+  const [show, setShow] = useState(false);
+  const [extra, setExtra] = useState([]);
 
-  const projOptions = useMemo(() => ['All', ...new Set((rows || []).map((r) => r.projectName))], [rows]);
-  const filtered = useMemo(() => (rows || []).filter((r) => (catF === 'All' || r.category === catF) && (proj === 'All' || r.projectName === proj)), [rows, catF, proj]);
-  const totalSize = (rows || []).reduce((s, r) => s + r.sizeKB, 0);
+  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const projOptions = useMemo(() => ['All', ...new Set(allRows.map((r) => r.projectName))], [allRows]);
+  const filtered = useMemo(() => allRows.filter((r) => (catF === 'All' || r.category === catF) && (proj === 'All' || r.projectName === proj)), [allRows, catF, proj]);
+  const totalSize = allRows.reduce((s, r) => s + r.sizeKB, 0);
+
+  const addDoc = (v) => {
+    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const ext = (v.name.includes('.') ? v.name.split('.').pop() : 'pdf').toLowerCase();
+    setExtra((prev) => [{
+      id: `DOC-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      name: v.name.includes('.') ? v.name : `${v.name}.${ext}`, category: v.category, ext,
+      version: v.version || 'v1.0', sizeKB: Number(v.sizeKB) || 256, uploadedBy: v.uploadedBy || 'PMO',
+      uploadedOn: '2026-07-24', shared: v.access === 'Shared',
+    }, ...prev]);
+    toast.success('Document uploaded', v.name);
+    setShow(false);
+  };
 
   const columns = [
     { key: 'name', header: 'Document', minWidth: 260, render: (r) => <div className="flex items-center gap-3"><span className="metric-icon" style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-3)' }}>{extIcon(r.ext)}</span><div style={{ minWidth: 0 }}><div className="fw-6 t-sm truncate">{r.name}</div><div className="t-xs ink-3">{r.projectName} · {r.version}</div></div></div> },
@@ -34,7 +51,7 @@ export default function Documents() {
     <div className="page">
       <PageHeader icon={<FolderOpen size={22} />} tint="blue" title="Document Repository" desc="PO, contracts, MOM, SRS, manuals, UAT reports & sign-offs — versioned"
         crumbs={[{ label: 'Governance' }, { label: 'Documents' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Upload document')}><Upload size={15} /> Upload</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Upload size={15} /> Upload</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Total Documents" value={rows?.length ?? '—'} tint="blue" icon={<FolderOpen size={19} />} footer={`${DOC_CATEGORIES.length} categories`} />
@@ -49,6 +66,18 @@ export default function Documents() {
       </div>
 
       <DataTable columns={columns} rows={filtered} loading={loading} exportName="documents.csv" searchPlaceholder="Search documents…" pageSize={15} />
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Upload Document" subtitle="Add a project document to the repository"
+        submitLabel="Upload" submitIcon={<Upload size={14} />} onSubmit={addDoc}
+        intro="Drag & drop a file or fill the details below. Documents are versioned automatically."
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'name', label: 'File Name', required: true, full: true, placeholder: 'e.g. SRS_OPD_v2.docx' },
+          { name: 'category', label: 'Category', type: 'select', required: true, options: DOC_CATEGORIES },
+          { name: 'version', label: 'Version', placeholder: 'v1.0' },
+          { name: 'access', label: 'Access', type: 'select', default: 'Private', options: ['Private', 'Shared'] },
+          { name: 'uploadedBy', label: 'Uploaded By', placeholder: 'Your name' },
+        ]} />
     </div>
   );
 }

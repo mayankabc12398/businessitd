@@ -4,8 +4,10 @@ import { useSearchParams } from 'react-router-dom';
 import { ShieldAlert, Plus, CheckCircle2, AlertOctagon, Timer } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
+import { PROJECTS } from '../data/projects';
+import { HIMS_MODULES, ISSUE_TYPES, SEVERITIES } from '../data/masters';
 
 const sevTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
@@ -15,15 +17,29 @@ export default function Issues() {
   const [params, setParams] = useSearchParams();
   const [sevF, setSevF] = useState('All');
   const [statusF, setStatusF] = useState('Open');
+  const [show, setShow] = useState(false);
+  const [extra, setExtra] = useState([]);
 
-  useEffect(() => { if (params.get('new') === '1') { toast.info('Log an issue'); setParams({}, { replace: true }); } }, [params, setParams, toast]);
+  useEffect(() => { if (params.get('new') === '1') { setShow(true); setParams({}, { replace: true }); } }, [params, setParams]);
 
-  const filtered = useMemo(() => (rows || []).filter((r) =>
+  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const filtered = useMemo(() => allRows.filter((r) =>
     (sevF === 'All' || r.severity === sevF) &&
     (statusF === 'All' || (statusF === 'Open' ? !['Resolved', 'Closed'].includes(r.status) : r.status === statusF))
-  ), [rows, sevF, statusF]);
+  ), [allRows, sevF, statusF]);
 
-  const open = (rows || []).filter((r) => !['Resolved', 'Closed'].includes(r.status));
+  const open = allRows.filter((r) => !['Resolved', 'Closed'].includes(r.status));
+
+  const addIssue = (v) => {
+    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    setExtra((prev) => [{
+      id: `ISS-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      title: v.title, type: v.type, module: v.module, severity: v.severity, status: 'Open',
+      reportedBy: v.reportedBy || 'Client', assignedTo: v.assignedTo, raised: '2026-07-24', due: v.due || '2026-08-15', resolved: null, ageDays: 0,
+    }, ...prev]);
+    toast.success('Issue logged', v.title);
+    setShow(false);
+  };
   const critical = open.filter((r) => r.severity === 'Critical').length;
   const overdue = open.filter((r) => r.ageDays > 21).length;
 
@@ -42,7 +58,7 @@ export default function Issues() {
     <div className="page">
       <PageHeader icon={<ShieldAlert size={22} />} tint="rose" title="Issue Tracker" desc="Cross-project issues, ownership and resolution SLA"
         crumbs={[{ label: 'Governance' }, { label: 'Issues' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Log issue')}><Plus size={15} /> Log Issue</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Plus size={15} /> Log Issue</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Open Issues" value={open.length} tint="rose" icon={<AlertOctagon size={19} />} footer={`${(rows||[]).length} total logged`} />
@@ -57,6 +73,19 @@ export default function Issues() {
       </div>
 
       <DataTable columns={columns} rows={filtered} loading={loading} exportName="issues.csv" searchPlaceholder="Search issues…" pageSize={15} />
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Log Issue" subtitle="Raise a cross-project implementation issue"
+        submitLabel="Log Issue" onSubmit={addIssue}
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'title', label: 'Issue Summary', required: true, full: true, placeholder: 'Describe the issue…' },
+          { name: 'type', label: 'Type', type: 'select', required: true, default: 'Bug', options: ISSUE_TYPES },
+          { name: 'severity', label: 'Severity', type: 'select', required: true, default: 'Medium', options: SEVERITIES },
+          { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
+          { name: 'assignedTo', label: 'Assign To', type: 'select', required: true, options: ['Rahul Sharma', 'Priya Nair', 'Amit Verma', 'Karthik Rao', 'Sana Qureshi', 'Farhan Shaikh'] },
+          { name: 'due', label: 'Due Date', type: 'date' },
+          { name: 'reportedBy', label: 'Reported By', placeholder: 'Client / Internal' },
+        ]} />
     </div>
   );
 }

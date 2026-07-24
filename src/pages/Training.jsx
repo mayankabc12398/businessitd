@@ -3,18 +3,34 @@ import { useState, useMemo } from 'react';
 import { GraduationCap, Plus, CheckCircle2, Users, Star, CalendarClock } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
+import { PROJECTS } from '../data/projects';
+import { HOSPITAL_DEPTS, TRAINING_TYPES } from '../data/masters';
 
 export default function Training() {
   const { data: rows, loading } = useApi(() => api.getTraining());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
   const toast = useToast();
   const [proj, setProj] = useState('All');
+  const [show, setShow] = useState(false);
+  const [extra, setExtra] = useState([]);
 
-  const projOptions = useMemo(() => ['All', ...new Set((rows || []).map((r) => r.projectName))], [rows]);
-  const filtered = useMemo(() => (rows || []).filter((r) => proj === 'All' || r.projectName === proj), [rows, proj]);
-  const avgFeedback = useMemo(() => { const f = (rows || []).filter((r) => r.feedback); return f.length ? (f.reduce((s, r) => s + r.feedback, 0) / f.length).toFixed(1) : '—'; }, [rows]);
+  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const projOptions = useMemo(() => ['All', ...new Set(allRows.map((r) => r.projectName))], [allRows]);
+  const filtered = useMemo(() => allRows.filter((r) => proj === 'All' || r.projectName === proj), [allRows, proj]);
+  const avgFeedback = useMemo(() => { const f = allRows.filter((r) => r.feedback); return f.length ? (f.reduce((s, r) => s + r.feedback, 0) / f.length).toFixed(1) : '—'; }, [allRows]);
+
+  const addTraining = (v) => {
+    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    setExtra((prev) => [{
+      id: `TRN-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      dept: v.dept, type: v.type, trainer: v.trainer || 'Ananya Iyer', date: v.date, durationHrs: Number(v.durationHrs) || 2,
+      plannedAttendees: Number(v.plannedAttendees) || 0, attendance: 0, status: 'Scheduled', feedback: null, signoff: '—',
+    }, ...prev]);
+    toast.success('Training scheduled', `${v.dept} · ${p ? p.name.split(' — ')[0] : ''}`);
+    setShow(false);
+  };
 
   const columns = [
     { key: 'dept', header: 'Department', minWidth: 150, render: (r) => <div><div className="fw-6 t-sm">{r.dept}</div><div className="t-xs ink-3">{r.projectName}</div></div> },
@@ -32,7 +48,7 @@ export default function Training() {
     <div className="page">
       <PageHeader icon={<GraduationCap size={22} />} tint="pink" title="Training Management" desc="Plan and record department-wise training, attendance & feedback"
         crumbs={[{ label: 'Build & Validate' }, { label: 'Training' }]}
-        actions={<button className="btn btn-primary" onClick={() => toast.info('Schedule training')}><Plus size={15} /> Schedule Training</button>} />
+        actions={<button className="btn btn-primary" onClick={() => setShow(true)}><Plus size={15} /> Schedule Training</button>} />
 
       <div className="kpi-grid stagger">
         <MetricCard label="Sessions" value={kpis?.trainingTotal ?? '—'} tint="pink" icon={<CalendarClock size={19} />} footer="Across projects" />
@@ -46,6 +62,18 @@ export default function Training() {
       </div>
 
       <DataTable columns={columns} rows={filtered} loading={loading} exportName="training.csv" searchPlaceholder="Search departments, trainers…" pageSize={15} />
+
+      <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule Training" subtitle="Plan a department-wise training session"
+        submitLabel="Schedule" onSubmit={addTraining}
+        fields={[
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'dept', label: 'Department', type: 'select', required: true, options: HOSPITAL_DEPTS },
+          { name: 'type', label: 'Training Type', type: 'select', required: true, default: 'Classroom', options: TRAINING_TYPES },
+          { name: 'trainer', label: 'Trainer', type: 'select', default: 'Ananya Iyer', options: ['Ananya Iyer', 'Neha Patel', 'Amit Verma'] },
+          { name: 'date', label: 'Date', type: 'date', required: true },
+          { name: 'durationHrs', label: 'Duration (hrs)', type: 'number', placeholder: '4' },
+          { name: 'plannedAttendees', label: 'Planned Attendees', type: 'number', placeholder: '0' },
+        ]} />
     </div>
   );
 }
