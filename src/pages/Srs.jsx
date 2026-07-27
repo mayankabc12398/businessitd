@@ -179,13 +179,16 @@ export default function Srs() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {[
-                ['SRS Points', activeRow.srsPoints ?? activeRow.requirements ?? 0, <ListChecks key="i" size={16} />, 'lavender'],
-                ['Attendees', activeRow.attendees ?? 0, <Users key="i" size={16} />, 'blue'],
-                ['Gaps', activeRow.gaps ?? 0, <GitBranch key="i" size={16} />, 'peach'],
-              ].map(([label, val, icon, tint]) => (
+                ['SRS Points', 'srsPoints', activeRow.srsPoints ?? activeRow.requirements ?? 0, <ListChecks key="i" size={16} />, 'lavender'],
+                ['Attendees', 'attendees', activeRow.attendees ?? 0, <Users key="i" size={16} />, 'blue'],
+                ['Gaps', 'gaps', activeRow.gaps ?? 0, <GitBranch key="i" size={16} />, 'peach'],
+              ].map(([label, field, val, icon, tint]) => (
                 <div key={label} className="card card-pad text-center">
                   <span className="metric-icon" style={{ width: 34, height: 34, borderRadius: 9, margin: '0 auto 6px', background: `var(--tint-${tint})`, color: `var(--tint-${tint}-ink)` }}>{icon}</span>
-                  <div className="t-2xl fw-8">{val}</div>
+                  <input type="number" min="0" className="t-2xl fw-8 tile-edit" value={val}
+                    onChange={(e) => setOverrides((o) => ({ ...o, [activeId]: { ...(o[activeId] || {}), [field]: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)) } }))}
+                    onFocus={(e) => e.target.select()}
+                    style={{ width: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', font: 'inherit', color: 'inherit', padding: 0 }} />
                   <div className="t-xs ink-3">{label}</div>
                 </div>
               ))}

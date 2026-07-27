@@ -1,12 +1,14 @@
 // Training Management — department-wise training sessions & attendance.
-import { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, Plus, CheckCircle2, Users, Star, CalendarClock, Clock, Mail } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { GraduationCap, Plus, CheckCircle2, Users, Star, CalendarClock, Clock, Mail, UploadCloud, FileText, Trash2, X, PenLine } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, Field, Input, Select, SearchSelect, SwitchField, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { PROJECTS } from '../data/projects';
 import { HOSPITAL_DEPTS, TRAINING_TYPES } from '../data/masters';
+
+const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`);
 
 // Duration in hours from two "HH:MM" strings (0 if invalid / non-positive).
 const calcDuration = (from, to) => {
@@ -27,8 +29,10 @@ export default function Training() {
   const [extra, setExtra] = useState([]);
   const [selected, setSelected] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [overrides, setOverrides] = useState({}); // id -> edited fields / docs / signoff
 
-  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const baseRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const allRows = useMemo(() => baseRows.map((r) => (overrides[r.id] ? { ...r, ...overrides[r.id] } : r)), [baseRows, overrides]);
   const projOptions = useMemo(() => ['All', ...new Set(allRows.map((r) => r.projectName))], [allRows]);
   const filtered = useMemo(() => allRows.filter((r) => proj === 'All' || r.projectName === proj), [allRows, proj]);
   const avgFeedback = useMemo(() => { const f = allRows.filter((r) => r.feedback); return f.length ? (f.reduce((s, r) => s + r.feedback, 0) / f.length).toFixed(1) : '—'; }, [allRows]);
@@ -42,6 +46,20 @@ export default function Training() {
   // Email a schedule/invite mail for a single scheduled session
   const sendSchedule = () => {
     toast.success('Schedule mail sent', `${activeRow.dept} training invite emailed to ${activeRow.trainer} · ${fmtDate(activeRow.date)}`);
+  };
+  // Inline-edit a numeric tile (Planned / Attendance / Feedback)
+  const setTile = (field, raw, float = false) => {
+    const n = raw === '' ? 0 : float ? Math.max(0, Number(raw)) : Math.max(0, Math.round(Number(raw)));
+    setOverrides((o) => ({ ...o, [activeId]: { ...(o[activeId] || {}), [field]: n } }));
+  };
+  const uploadDocs = (files) => {
+    const prev = overrides[activeId]?.docs ?? activeRow?.docs ?? [];
+    setOverrides((o) => ({ ...o, [activeId]: { ...(o[activeId] || {}), docs: [...prev, ...files], signoff: 'Signed' } }));
+    toast.success('Sign-off uploaded', `${files.length} file${files.length > 1 ? 's' : ''} attached · ${activeRow?.dept}`);
+  };
+  const removeDoc = (idx) => {
+    const docs = (overrides[activeId]?.docs ?? activeRow?.docs ?? []).filter((_, i) => i !== idx);
+    setOverrides((o) => ({ ...o, [activeId]: { ...(o[activeId] || {}), docs } }));
   };
 
   const addTraining = (v) => {
@@ -134,17 +152,22 @@ export default function Training() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {[
-                ['Planned', activeRow.plannedAttendees ?? 0, <Users key="i" size={16} />, 'blue'],
-                ['Attendance', activeRow.attendance ?? 0, <CheckCircle2 key="i" size={16} />, 'green'],
-                ['Feedback', activeRow.feedback ?? '—', <Star key="i" size={16} />, 'lemon'],
-              ].map(([label, val, icon, tint]) => (
+                ['Planned', 'plannedAttendees', activeRow.plannedAttendees ?? 0, <Users key="i" size={16} />, 'blue', false],
+                ['Attendance', 'attendance', activeRow.attendance ?? 0, <CheckCircle2 key="i" size={16} />, 'green', false],
+                ['Feedback', 'feedback', activeRow.feedback ?? 0, <Star key="i" size={16} />, 'lemon', true],
+              ].map(([label, field, val, icon, tint, float]) => (
                 <div key={label} className="card card-pad text-center">
                   <span className="metric-icon" style={{ width: 34, height: 34, borderRadius: 9, margin: '0 auto 6px', background: `var(--tint-${tint})`, color: `var(--tint-${tint}-ink)` }}>{icon}</span>
-                  <div className="t-2xl fw-8">{val}</div>
+                  <input type="number" min="0" step={float ? '0.1' : '1'} max={float ? '5' : undefined} className="t-2xl fw-8 tile-edit" value={val}
+                    onChange={(e) => setTile(field, e.target.value, float)} onFocus={(e) => e.target.select()}
+                    style={{ width: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', font: 'inherit', color: 'inherit', padding: 0 }} />
                   <div className="t-xs ink-3">{label}</div>
                 </div>
               ))}
             </div>
+
+            <TrainingDocs docs={activeRow.docs || []} signed={activeRow.signoff === 'Signed'} onUpload={uploadDocs} onRemove={removeDoc} />
+
             <div className="card card-pad">
               <div className="detail-list">
                 <DetailRow label="Status"><StatusBadge status={activeRow.status} /></DetailRow>
@@ -156,6 +179,76 @@ export default function Training() {
       </Drawer>
 
       <ScheduleTraining open={show} onClose={() => setShow(false)} onSchedule={addTraining} />
+    </div>
+  );
+}
+
+// ---- Sign-off documents upload (drag & drop, multi-file) ----
+function TrainingDocs({ docs, signed, onUpload, onRemove }) {
+  const [staged, setStaged] = useState([]);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef(null);
+
+  const addFiles = (fileList) => {
+    const arr = Array.from(fileList).map((f) => ({ name: f.name, size: f.size, ext: (f.name.split('.').pop() || '').toLowerCase() }));
+    if (arr.length) setStaged((p) => [...p, ...arr]);
+  };
+  const onDrop = (e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); };
+  const confirm = () => { onUpload(staged); setStaged([]); };
+
+  return (
+    <div className="card card-pad">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 card-title"><PenLine size={15} /> Sign-off Documents</div>
+        {signed ? <Badge tone="success"><CheckCircle2 size={11} /> Signed</Badge> : <Badge tone="pending">Pending</Badge>}
+      </div>
+
+      {docs.length > 0 && (
+        <div className="flex-col gap-2 mb-3">
+          {docs.map((d, i) => (
+            <div key={i} className="flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px' }}>
+              <span className="metric-icon" style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--tint-mint)', color: 'var(--tint-mint-ink)' }}><FileText size={14} /></span>
+              <div className="flex-1" style={{ minWidth: 0 }}><div className="t-sm fw-6 truncate">{d.name}</div><div className="t-xs ink-3">{fmtSize(d.size)} · uploaded</div></div>
+              <button className="icon-btn" style={{ width: 28, height: 28 }} title="Remove" onClick={() => onRemove(i)}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={onDrop}
+        style={{
+          border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 12, padding: '20px 16px',
+          textAlign: 'center', cursor: 'pointer', background: drag ? 'var(--primary-softer)' : 'var(--surface-2)', transition: 'all var(--dur) var(--ease)',
+        }}
+      >
+        <UploadCloud size={26} color={drag ? 'var(--primary)' : 'var(--text-3)'} style={{ margin: '0 auto 6px' }} />
+        <div className="t-sm fw-6 ink-1">Drag & drop sign-off files, or <span style={{ color: 'var(--primary-700)' }}>browse</span></div>
+        <div className="t-xs ink-3 mt-1">Bulk upload — PDF, images or scanned sheets. Multiple files supported.</div>
+        <input ref={inputRef} type="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+      </div>
+
+      {staged.length > 0 && (
+        <div className="flex-col gap-2 mt-3">
+          {staged.map((f, i) => (
+            <div key={i} className="flex items-center gap-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px' }}>
+              <span className="metric-icon" style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-3)' }}><FileText size={14} color="var(--text-2)" /></span>
+              <div className="flex-1" style={{ minWidth: 0 }}><div className="t-sm fw-6 truncate">{f.name}</div><div className="t-xs ink-3">{fmtSize(f.size)}</div></div>
+              <button className="icon-btn" style={{ width: 28, height: 28 }} title="Remove" onClick={() => setStaged((p) => p.filter((_, x) => x !== i))}><X size={14} /></button>
+            </div>
+          ))}
+          <div className="flex items-center justify-between mt-1">
+            <span className="t-xs ink-3">{staged.length} file{staged.length > 1 ? 's' : ''} ready</span>
+            <div className="flex gap-2">
+              <button className="btn btn-ghost btn-sm" onClick={() => setStaged([])}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={confirm}><UploadCloud size={14} /> Upload & Sign off</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

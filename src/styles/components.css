@@ -368,6 +368,12 @@ table.data-table tbody tr:last-child td { border-bottom: none; }
 .step.current .step-title { color: var(--text-1); }
 .step-sub { font-size: 10.5px; color: var(--text-3); }
 
+/* ================= Editable stat tile input ================= */
+.tile-edit { border-radius: 6px; transition: box-shadow var(--dur) var(--ease), background var(--dur) var(--ease); -moz-appearance: textfield; }
+.tile-edit::-webkit-outer-spin-button, .tile-edit::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tile-edit:hover { background: var(--surface-2); }
+.tile-edit:focus { background: var(--surface-2); box-shadow: 0 2px 0 0 var(--primary); }
+
 /* ================= Onboarding wizard stepper ================= */
 .wiz-card { padding: 16px 22px 18px; }
 .wiz-rail { display: flex; align-items: flex-start; padding: 2px 4px 0; }
