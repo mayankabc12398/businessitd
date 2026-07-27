@@ -7,7 +7,7 @@ import {
   GraduationCap, Rocket, ShieldAlert, TriangleAlert, BadgeCheck,
   FolderOpen, BarChart3, Settings2, Users,
   Boxes, Workflow, Braces, FileCode2, Hospital, History, Recycle, Share2,
-  Lightbulb, Map, TrendingUp, Inbox, Shapes, Library, BookOpen, Gauge,
+  Lightbulb, Map, TrendingUp, Inbox, Shapes, Library, BookOpen, Gauge, Route,
 } from 'lucide-react';
 
 // ── Workspace 1 · existing HIMS Implementation PMO ──────────────────────────
@@ -16,6 +16,7 @@ const PMO_MENU = [
     group: 'Overview',
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', end: true, desc: 'Portfolio-wide implementation overview' },
+      { path: '/onboarding', label: 'Onboarding', icon: Route, tint: 'lavender', desc: 'Guided 3-step implementation onboarding wizard' },
       { path: '/schedule', label: 'Activity Schedule', icon: CalendarRange, tint: 'blue', desc: 'Phase-wise implementation plan — planned vs actual dates' },
       { path: '/users', label: 'Users & Access', icon: Contact, tint: 'cyan', desc: 'Department-wise HIMS user roster & access type' },
     ],

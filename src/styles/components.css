@@ -368,6 +368,56 @@ table.data-table tbody tr:last-child td { border-bottom: none; }
 .step.current .step-title { color: var(--text-1); }
 .step-sub { font-size: 10.5px; color: var(--text-3); }
 
+/* ================= Onboarding wizard stepper ================= */
+.wiz-card { padding: 16px 22px 18px; }
+.wiz-rail { display: flex; align-items: flex-start; padding: 2px 4px 0; }
+.wiz-step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+.wiz-step.clickable { cursor: pointer; }
+.wiz-connect { position: absolute; top: 27px; left: -50%; width: 100%; height: 3px; background: var(--border-strong); border-radius: 3px; overflow: hidden; z-index: 0; }
+.wiz-connect-fill { position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, var(--primary), var(--primary-600)); border-radius: 3px; transition: width var(--dur-slow) var(--ease); }
+.wiz-step.done .wiz-connect-fill, .wiz-step.current .wiz-connect-fill { width: 100%; }
+.wiz-node {
+  width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 2px solid var(--border-strong); color: var(--text-3);
+  position: relative; z-index: 1;
+  transition: transform var(--dur) var(--ease-spring), background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.wiz-step.clickable:hover .wiz-node { border-color: var(--primary); color: var(--primary-700); transform: translateY(-2px); }
+.wiz-step.current .wiz-node {
+  border-color: var(--primary); color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  box-shadow: 0 0 0 6px var(--primary-ring); transform: scale(1.08);
+}
+.wiz-step.done .wiz-node { border-color: var(--primary-600); background: linear-gradient(135deg, var(--primary), var(--primary-600)); color: #fff; }
+.wiz-node .wiz-check { animation: popIn var(--dur) var(--ease-spring) both; }
+.wiz-text { margin-top: 8px; text-align: center; max-width: 170px; }
+.wiz-step-k { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-3); }
+.wiz-step.current .wiz-step-k { color: var(--primary-700); }
+.wiz-step-title { font-size: 14px; font-weight: 700; color: var(--text-2); line-height: 1.25; margin-top: 2px; transition: color var(--dur) var(--ease); }
+.wiz-step.current .wiz-step-title, .wiz-step.done .wiz-step-title { color: var(--text-1); }
+.wiz-step-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
+.wiz-panel.fwd { animation: slideInRight var(--dur-slow) var(--ease) both; }
+.wiz-panel.back { animation: slideInLeft var(--dur-slow) var(--ease) both; }
+
+.wiz-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.wiz-dots { display: flex; gap: 7px; align-items: center; }
+.wiz-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); transition: all var(--dur) var(--ease); }
+.wiz-dot.done { background: var(--primary-600); }
+.wiz-dot.active { width: 26px; border-radius: 5px; background: var(--primary); }
+
+.wiz-list { display: flex; flex-direction: column; }
+.wiz-row { display: flex; align-items: center; gap: 12px; padding: 12px 6px; border-bottom: 1px solid var(--border); }
+.wiz-row:last-child { border-bottom: none; }
+
+@media (max-width: 640px) {
+  .wiz-node { width: 46px; height: 46px; }
+  .wiz-connect { top: 22px; }
+  .wiz-step-k, .wiz-step-sub { display: none; }
+  .wiz-step-title { font-size: 12px; }
+}
+
 /* ================= Drawer ================= */
 .overlay {
   position: fixed; inset: 0; z-index: 60;

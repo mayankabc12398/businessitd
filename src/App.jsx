@@ -4,6 +4,7 @@ import AppLayout from './layouts/AppLayout';
 import { ToastProvider, Skeleton } from './components/ui';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Schedule = lazy(() => import('./pages/Schedule'));
 const HospitalUsers = lazy(() => import('./pages/Users'));
 const Projects = lazy(() => import('./pages/Projects'));
@@ -74,6 +75,7 @@ export default function App() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={page(<Dashboard />)} />
+            <Route path="onboarding" element={page(<Onboarding />)} />
             <Route path="schedule" element={page(<Schedule />)} />
             <Route path="users" element={page(<HospitalUsers />)} />
             <Route path="projects" element={page(<Projects />)} />
