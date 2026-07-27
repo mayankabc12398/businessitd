@@ -226,9 +226,9 @@ function WorkspaceSwitcher() {
         <span className="metric-icon" style={{ width: 28, height: 28, borderRadius: 8, background: `var(--tint-${ws.tint})`, color: `var(--tint-${ws.tint}-ink)`, flexShrink: 0 }}>
           <ws.icon size={16} />
         </span>
-        <span className="hide-mobile" style={{ textAlign: 'left', minWidth: 0 }}>
-          <span className="t-sm fw-7 ink-1" style={{ display: 'block', lineHeight: 1.15 }}>{ws.name}</span>
-          <span className="t-xs ink-3">{ws.tag}</span>
+        <span className="hide-mobile ws-trigger-text" style={{ textAlign: 'left', minWidth: 0, overflow: 'hidden' }}>
+          <span className="t-sm fw-7 ink-1 truncate" style={{ display: 'block', lineHeight: 1.2 }}>{ws.name}</span>
+          <span className="t-xs ink-3 truncate" style={{ display: 'block', lineHeight: 1.2 }}>{ws.tag}</span>
         </span>
         <ChevronDown size={14} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
@@ -255,9 +255,10 @@ function WorkspaceSwitcher() {
         </div>
       )}
       <style>{`
-        .ws-trigger { display:flex; align-items:center; gap:9px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:5px 10px 5px 6px; cursor:pointer; max-width:260px; transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+        .ws-trigger { display:flex; align-items:center; gap:9px; width:240px; max-width:240px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:5px 10px 5px 6px; cursor:pointer; overflow:hidden; transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
         .ws-trigger:hover { border-color:var(--primary-soft); background:var(--surface-3); }
-        @media (max-width: 720px){ .ws-trigger { padding:5px; } }
+        .ws-trigger-text { flex:1 1 auto; min-width:0; overflow:hidden; }
+        @media (max-width: 900px){ .ws-trigger { width:auto; max-width:none; padding:5px; } }
       `}</style>
     </div>
   );

@@ -38,12 +38,20 @@ const Reuse = lazy(() => import('./pages/integration/Reuse'));
 const Vendors = lazy(() => import('./pages/integration/Vendors'));
 const IntegrationReports = lazy(() => import('./pages/integration/Reports'));
 
-// Workspace 3 · Feature Management & Revenue Generation
-const GrowthDashboard = lazy(() => import('./pages/revenue/GrowthDashboard'));
-const Features = lazy(() => import('./pages/revenue/Features'));
-const Roadmap = lazy(() => import('./pages/revenue/Roadmap'));
-const Plans = lazy(() => import('./pages/revenue/Plans'));
-const RevenueStreams = lazy(() => import('./pages/revenue/RevenueStreams'));
+// Workspace 3 · Feature Intelligence Platform (SFR)
+const SfrDashboard = lazy(() => import('./pages/revenue/Dashboard'));
+const AllFeatures = lazy(() => import('./pages/revenue/AllFeatures'));
+const FeatureRequests = lazy(() => import('./pages/revenue/FeatureRequests'));
+const FeatureRoadmap = lazy(() => import('./pages/revenue/Roadmap'));
+const FeatureCategories = lazy(() => import('./pages/revenue/Categories'));
+const FeatureWorkflow = lazy(() => import('./pages/revenue/Workflow'));
+const Approvals = lazy(() => import('./pages/revenue/Approvals'));
+const FeatureLibrary = lazy(() => import('./pages/revenue/FeatureLibrary'));
+const ReusableFeatures = lazy(() => import('./pages/revenue/Reusable'));
+const KnowledgeBase = lazy(() => import('./pages/revenue/KnowledgeBase'));
+const RoiDashboard = lazy(() => import('./pages/revenue/RoiDashboard'));
+const ClientAdoption = lazy(() => import('./pages/revenue/ClientAdoption'));
+const FeatureReports = lazy(() => import('./pages/revenue/Reports'));
 
 function PageFallback() {
   return (
@@ -100,12 +108,20 @@ export default function App() {
             <Route path="integration/vendors" element={page(<Vendors />)} />
             <Route path="integration/reports" element={page(<IntegrationReports />)} />
 
-            {/* Feature Management & Revenue Generation workspace */}
-            <Route path="revenue" element={page(<GrowthDashboard />)} />
-            <Route path="revenue/features" element={page(<Features />)} />
-            <Route path="revenue/roadmap" element={page(<Roadmap />)} />
-            <Route path="revenue/plans" element={page(<Plans />)} />
-            <Route path="revenue/streams" element={page(<RevenueStreams />)} />
+            {/* Feature Intelligence Platform (SFR) workspace */}
+            <Route path="revenue" element={page(<SfrDashboard />)} />
+            <Route path="revenue/features" element={page(<AllFeatures />)} />
+            <Route path="revenue/requests" element={page(<FeatureRequests />)} />
+            <Route path="revenue/roadmap" element={page(<FeatureRoadmap />)} />
+            <Route path="revenue/categories" element={page(<FeatureCategories />)} />
+            <Route path="revenue/workflow" element={page(<FeatureWorkflow />)} />
+            <Route path="revenue/approvals" element={page(<Approvals />)} />
+            <Route path="revenue/library" element={page(<FeatureLibrary />)} />
+            <Route path="revenue/reusable" element={page(<ReusableFeatures />)} />
+            <Route path="revenue/knowledge" element={page(<KnowledgeBase />)} />
+            <Route path="revenue/roi" element={page(<RoiDashboard />)} />
+            <Route path="revenue/adoption" element={page(<ClientAdoption />)} />
+            <Route path="revenue/reports" element={page(<FeatureReports />)} />
           </Route>
         </Routes>
       </HashRouter>

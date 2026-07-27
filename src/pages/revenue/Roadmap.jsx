@@ -1,15 +1,16 @@
-// Roadmap — feature delivery pipeline as a stage board.
+// Feature Roadmap — pipeline board across every status (Module workflow view).
 import { useMemo } from 'react';
-import { Map, ThumbsUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Map, Recycle } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, Badge, SkeletonRows } from '../../components/ui';
 import { fmtINR } from '../../utils/format';
-import { FEATURE_STATUSES, FEATURE_STATUS_TINT } from '../../data/revenue';
-
-const PRIO_TONE = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
+import { FEATURE_STATUSES, STATUS_TINT } from '../../data/revenue';
+import { PRIO_TONE } from './_shared';
 
 export default function Roadmap() {
+  const navigate = useNavigate();
   const { data: rows, loading } = useApi(() => api.getFeatures());
 
   const byStatus = useMemo(() => {
@@ -20,44 +21,37 @@ export default function Roadmap() {
 
   return (
     <div className="page">
-      <PageHeader icon={<Map size={22} />} tint="blue" title="Product Roadmap" desc="Feature delivery pipeline across every stage — Idea to Shipped"
-        crumbs={[{ label: 'Revenue' }, { label: 'Roadmap' }]} />
+      <PageHeader icon={<Map size={22} />} tint="sky" title="Feature Roadmap" desc="Pipeline board — from new request to available for all clients"
+        crumbs={[{ label: 'Feature Intelligence' }, { label: 'Roadmap' }]} />
 
       {loading ? (
         <div className="card"><SkeletonRows rows={6} /></div>
       ) : (
-        <div className="roadmap-board" style={{ display: 'grid', gridTemplateColumns: `repeat(${FEATURE_STATUSES.length}, minmax(220px, 1fr))`, gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
-          {FEATURE_STATUSES.map((stage) => {
-            const items = byStatus[stage] || [];
-            const stageValue = items.reduce((s, f) => s + f.revenueImpact, 0);
+        <div className="rm-board" style={{ display: 'grid', gridTemplateColumns: `repeat(${FEATURE_STATUSES.length}, minmax(210px, 1fr))`, gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+          {FEATURE_STATUSES.map((status) => {
+            const items = byStatus[status] || [];
+            const tint = STATUS_TINT[status] || 'neutral';
             return (
-              <div key={stage} className="card card-pad" style={{ background: 'var(--surface-2)', minWidth: 220 }}>
+              <div key={status} className="card card-pad" style={{ background: 'var(--surface-2)', minWidth: 210 }}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="flex items-center gap-2 fw-7 t-sm">
-                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: `var(--tint-${FEATURE_STATUS_TINT[stage]}-ink)` }} />
-                    {stage}
-                  </span>
+                  <span className="flex items-center gap-2 fw-7 t-sm"><span style={{ width: 9, height: 9, borderRadius: '50%', background: `var(--tint-${tint}-ink)` }} />{status}</span>
                   <Badge tone="neutral">{items.length}</Badge>
                 </div>
-                <div className="t-xs ink-3 mb-3">{fmtINR(stageValue, true)} pipeline</div>
                 <div className="flex-col gap-2">
                   {items.map((f) => (
-                    <div key={f.id} className="card card-pad card-hover" style={{ padding: 12, background: 'var(--surface)', animation: 'fadeUp var(--dur) var(--ease) both' }}>
+                    <button key={f.id} className="card card-pad card-hover" style={{ padding: 11, background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', animation: 'fadeUp var(--dur) var(--ease) both' }} onClick={() => navigate(`/revenue/features?id=${f.id}`)}>
                       <div className="flex items-start justify-between gap-2">
-                        <span className="fw-6 t-sm" style={{ lineHeight: 1.3 }}>{f.title}</span>
+                        <span className="fw-6 t-sm" style={{ lineHeight: 1.3 }}>{f.name}</span>
                         <Badge tone={PRIO_TONE[f.priority]}>{f.priority}</Badge>
                       </div>
-                      <div className="t-xs ink-3 mt-1">{f.module}</div>
-                      <div className="flex items-center justify-between mt-3">
-                        <span className="t-xs fw-6" style={{ color: 'var(--success-ink)' }}>{fmtINR(f.revenueImpact, true)}</span>
-                        <span className="flex items-center gap-3 t-xs ink-3">
-                          <span className="flex items-center gap-1"><ThumbsUp size={11} /> {f.votes}</span>
-                          <span>{f.targetQtr}</span>
-                        </span>
+                      <div className="t-xs ink-3 mt-1">{f.client} · {f.module}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="t-xs fw-6" style={{ color: 'var(--success-ink)' }}>{f.revenueGenerated ? fmtINR(f.revenueGenerated, true) : '—'}</span>
+                        {f.reusable && <span className="flex items-center gap-1 t-xs ink-3"><Recycle size={11} /> reusable</span>}
                       </div>
-                    </div>
+                    </button>
                   ))}
-                  {items.length === 0 && <div className="t-xs ink-3 text-center" style={{ padding: 16 }}>No features</div>}
+                  {items.length === 0 && <div className="t-xs ink-3 text-center" style={{ padding: 14 }}>—</div>}
                 </div>
               </div>
             );

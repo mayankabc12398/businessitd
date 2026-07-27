@@ -7,7 +7,7 @@ import {
   GraduationCap, Rocket, ShieldAlert, TriangleAlert, BadgeCheck,
   FolderOpen, BarChart3, Settings2, Users,
   Boxes, Workflow, Braces, FileCode2, Hospital, History, Recycle, Share2,
-  Lightbulb, Map, Tags, CircleDollarSign, TrendingUp,
+  Lightbulb, Map, TrendingUp, Inbox, Shapes, Library, BookOpen, Gauge,
 } from 'lucide-react';
 
 // ── Workspace 1 · existing HIMS Implementation PMO ──────────────────────────
@@ -95,26 +95,44 @@ const INTEGRATION_MENU = [
   },
 ];
 
-// ── Workspace 3 · New Feature Management & Revenue Generation ────────────────
+// ── Workspace 3 · Feature Intelligence Platform (SFR) ───────────────────────
 const REVENUE_MENU = [
   {
     group: 'Overview',
     items: [
-      { path: '/revenue', label: 'Growth Dashboard', icon: LayoutDashboard, tint: 'green', end: true, desc: 'Revenue, MRR/ARR & feature pipeline' },
+      { path: '/revenue', label: 'Dashboard', icon: LayoutDashboard, tint: 'green', end: true, desc: 'Feature intelligence & revenue summary' },
     ],
   },
   {
-    group: 'Product',
+    group: 'Feature Management',
     items: [
-      { path: '/revenue/features', label: 'Feature Backlog', icon: Lightbulb, tint: 'lavender', desc: 'Ideas → shipped with revenue impact' },
-      { path: '/revenue/roadmap', label: 'Roadmap', icon: Map, tint: 'blue', desc: 'Delivery pipeline by stage & quarter' },
+      { path: '/revenue/features', label: 'All Features', icon: Lightbulb, tint: 'lavender', desc: 'Master feature register & 360° record' },
+      { path: '/revenue/requests', label: 'Feature Requests', icon: Inbox, tint: 'blue', desc: 'New client requests & registration' },
+      { path: '/revenue/roadmap', label: 'Feature Roadmap', icon: Map, tint: 'sky', desc: 'Pipeline board across every stage' },
+      { path: '/revenue/categories', label: 'Feature Categories', icon: Shapes, tint: 'peach', desc: 'Browse features by category' },
     ],
   },
   {
-    group: 'Monetization',
+    group: 'Workflow',
     items: [
-      { path: '/revenue/plans', label: 'Plans & Pricing', icon: Tags, tint: 'mint', desc: 'Subscription tiers & add-on modules' },
-      { path: '/revenue/streams', label: 'Revenue Streams', icon: CircleDollarSign, tint: 'green', desc: 'Recurring & one-time revenue sources' },
+      { path: '/revenue/workflow', label: 'Feature Workflow', icon: Workflow, tint: 'indigo', desc: '8-step feature lifecycle' },
+      { path: '/revenue/approvals', label: 'Approvals', icon: BadgeCheck, tint: 'cyan', badge: 'inbox', desc: 'Review & approval queue' },
+    ],
+  },
+  {
+    group: 'Knowledge Base',
+    items: [
+      { path: '/revenue/library', label: 'Feature Library', icon: Library, tint: 'mint', desc: 'Searchable catalog of reusable features' },
+      { path: '/revenue/reusable', label: 'Reusable Features', icon: Recycle, tint: 'green', desc: 'Reusability analysis & sharing' },
+      { path: '/revenue/knowledge', label: 'Knowledge Base', icon: BookOpen, tint: 'lavender', desc: 'SRS, BRD, videos, release notes, FAQs' },
+    ],
+  },
+  {
+    group: 'Insights',
+    items: [
+      { path: '/revenue/roi', label: 'ROI Dashboard', icon: Gauge, tint: 'green', desc: 'Cost, revenue & ROI per feature' },
+      { path: '/revenue/adoption', label: 'Client Adoption', icon: Hospital, tint: 'cyan', desc: 'Which clients run which feature' },
+      { path: '/revenue/reports', label: 'Reports & Analytics', icon: BarChart3, tint: 'indigo', desc: 'Feature analytics & exports' },
     ],
   },
 ];
@@ -143,7 +161,7 @@ export const WORKSPACES = [
   {
     id: 'revenue',
     name: 'Feature & Revenue',
-    tag: 'Product & Growth',
+    tag: 'Feature Intelligence',
     icon: TrendingUp,
     tint: 'green',
     home: '/revenue',

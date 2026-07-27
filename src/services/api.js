@@ -11,7 +11,7 @@ import { DEV_ITEMS, UAT_CASES, BUGS, TRAINING, GOLIVE_READINESS, LIVE_IMPORTS, P
 import { ISSUES, RISKS, SIGNOFFS, DOCUMENTS, GOVERNANCE_KPIS } from '../data/governance';
 import { NOTIFICATIONS, ACTIVITY_FEED, UPCOMING, PROJECT_TREND, REVENUE_TREND, PHASE_DISTRIBUTION, HEALTH_MIX, CATEGORY_MIX, WORKLOAD, STAGE_FUNNEL } from '../data/misc';
 import { INTEGRATIONS, PROCESS_FLOWS, APIS, PAYLOADS, HIMS_CHANGES, DB_CHANGES, SOURCE_CODE, SCREENS, CLIENT_IMPLEMENTATIONS, TEST_CASES, INT_DOCUMENTS, VERSION_HISTORY, DEVELOPER_NOTES, VENDORS, TYPE_MIX, SIR_KPIS } from '../data/integration';
-import { FEATURES, PLANS, REVENUE_STREAMS, REVENUE_TREND as REV_MRR_TREND, REVENUE_BY_MODULE, REVENUE_KPIS } from '../data/revenue';
+import { FEATURES, BUSINESS_ANALYSIS, TECHNICAL_ANALYSIS, FEATURE_WORKFLOWS, DEV_DETAILS, IMPACT, SCREEN_CHANGES, FEATURE_TESTS, CLIENT_ADOPTION, KB_DOCS, APPROVALS, FEATURE_LIBRARY, TOP_BY_IMPACT, STATUS_MIX, CATEGORY_MIX as FEATURE_CATEGORY_MIX, FEATURE_TREND, SFR_KPIS } from '../data/revenue';
 
 const LATENCY = 280;
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -91,13 +91,24 @@ export const api = {
   getTypeMix: () => respond(TYPE_MIX, 120),
   getSirKpis: () => respond(SIR_KPIS, 120),
 
-  // feature management & revenue generation workspace
+  // smart feature repository (SFR) — feature intelligence platform
   getFeatures: () => respond(FEATURES),
-  getPlans: () => respond(PLANS),
-  getRevenueStreams: () => respond(REVENUE_STREAMS),
-  getRevenueMrrTrend: () => respond(REV_MRR_TREND, 120),
-  getRevenueByModule: () => respond(REVENUE_BY_MODULE, 120),
-  getRevenueKpis: () => respond(REVENUE_KPIS, 120),
+  getBusinessAnalysis: () => respond(BUSINESS_ANALYSIS),
+  getTechnicalAnalysis: () => respond(TECHNICAL_ANALYSIS),
+  getFeatureWorkflows: () => respond(FEATURE_WORKFLOWS),
+  getDevDetails: () => respond(DEV_DETAILS),
+  getFeatureImpact: () => respond(IMPACT),
+  getScreenChanges: () => respond(SCREEN_CHANGES),
+  getFeatureTests: () => respond(FEATURE_TESTS),
+  getClientAdoption: () => respond(CLIENT_ADOPTION),
+  getKbDocs: () => respond(KB_DOCS),
+  getApprovals: () => respond(APPROVALS),
+  getFeatureLibrary: () => respond(FEATURE_LIBRARY),
+  getTopByImpact: () => respond(TOP_BY_IMPACT, 120),
+  getFeatureStatusMix: () => respond(STATUS_MIX, 120),
+  getFeatureCategoryMix: () => respond(FEATURE_CATEGORY_MIX, 120),
+  getFeatureTrend: () => respond(FEATURE_TREND, 120),
+  getSfrKpis: () => respond(SFR_KPIS, 120),
 
   // mutations (simulated echo so UIs can optimistic-update)
   submit: (entity, payload) => respond({ ok: true, entity, id: `${entity.slice(0, 3).toUpperCase()}-NEW-${Math.floor(Math.random() * 9000) + 1000}`, payload }, 460),
