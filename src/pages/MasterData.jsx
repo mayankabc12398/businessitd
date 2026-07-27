@@ -53,6 +53,7 @@ export default function MasterData() {
       master: v.master, requested: true, received: imported, imported,
       requestedOn: '2026-07-24T10:00', receivedOn: imported ? '2026-07-24T10:05' : null, importedOn: imported ? '2026-07-24T10:10' : null,
       records, failed: 0, validation: imported ? 'Passed' : '—', owner: v.owner || 'PMO',
+      requestedDate: v.requestedDate || null, importDate: v.importDate || null, type: v.type || null,
       status: imported ? 'Imported' : 'Awaited',
     }, ...prev]);
     toast.success(imported ? 'Master imported' : 'Master requested', `${v.master} · ${p ? p.name.split(' — ')[0] : ''}`);
@@ -98,6 +99,9 @@ export default function MasterData() {
         submitLabel="Request Master" onSubmit={(v) => addMaster(v, false)}
         fields={[
           { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'requestedDate', label: 'Requested Date', type: 'date' },
+          { name: 'importDate', label: 'Import Date', type: 'date' },
+          { name: 'type', label: 'Type', type: 'select', options: ['Onsite', 'Offsite', 'Online'], placeholder: 'Select type…' },
           { name: 'master', label: 'Master', type: 'select', required: true, full: true, options: MASTER_NAMES },
           { name: 'owner', label: 'Owner', placeholder: 'Responsible consultant' },
         ]} />

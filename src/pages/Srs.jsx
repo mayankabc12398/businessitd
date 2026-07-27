@@ -45,13 +45,15 @@ export default function Srs() {
   const addSrs = (v) => {
     const p = PROJECTS.find((x) => x.code === v.projectCode);
     const points = Number(v.srsPoints) || 0;
-    setExtra((prev) => [{
-      id: `SRS-${String(baseRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      dept: v.dept, consultant: v.consultant, planned: v.planned, actual: null, status: 'Scheduled',
+    const depts = Array.isArray(v.dept) ? v.dept : v.dept ? [v.dept] : [];
+    const rows = depts.map((dept, i) => ({
+      id: `SRS-${String(baseRows.length + 1 + i).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      dept, phase: v.phase || '—', consultant: v.consultant, planned: v.planned, actual: null, status: 'Scheduled',
       completedAt: v.completedAt || null, attendees: Number(v.attendees) || 0, srsPoints: points,
       requirements: points || Number(v.requirements) || 0, gaps: 0, crs: 0, signoff: '—', docs: [],
-    }, ...prev]);
-    toast.success('SRS scheduled', `${v.dept} · ${p ? p.name.split(' — ')[0] : ''}`);
+    }));
+    setExtra((prev) => [...rows, ...prev]);
+    toast.success('SRS scheduled', `${depts.length} department${depts.length > 1 ? 's' : ''} · ${p ? p.name.split(' — ')[0] : ''}`);
     setShow(false);
   };
 
@@ -169,6 +171,7 @@ export default function Srs() {
               <div className="detail-list">
                 <DetailRow label="Project">{activeRow.projectName} <span className="mono t-xs ink-3">({activeRow.projectCode})</span></DetailRow>
                 <DetailRow label="Department"><Badge tone="info">{activeRow.dept}</Badge></DetailRow>
+                <DetailRow label="Phase">{activeRow.phase || '—'}</DetailRow>
                 <DetailRow label="Consultant">{activeRow.consultant}</DetailRow>
                 <DetailRow label="Planned Date">{fmtDate(activeRow.planned)}</DetailRow>
                 <DetailRow label="Completion Date & Time">{fmtDateTime(activeRow.completedAt)}</DetailRow>
@@ -207,7 +210,8 @@ export default function Srs() {
         submitLabel="Schedule" onSubmit={addSrs}
         fields={[
           { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
-          { name: 'dept', label: 'Department', type: 'select', required: true, options: HOSPITAL_DEPTS },
+          { name: 'phase', label: 'Phase', type: 'select', required: true, options: ['Kick-off', 'Discovery', 'Requirement Gathering', 'Gap Review', 'Final Sign-off'] },
+          { name: 'dept', label: 'Department', type: 'multiselect', required: true, options: HOSPITAL_DEPTS, placeholder: 'Select one or more…' },
           { name: 'consultant', label: 'Consultant', type: 'select', required: true, options: ['Neha Patel', 'Amit Verma', 'Meera Krishnan'] },
           { name: 'planned', label: 'Planned Date', type: 'date', required: true },
           { name: 'completedAt', label: 'Completion Date & Time', type: 'datetime-local' },

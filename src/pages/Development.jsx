@@ -36,6 +36,7 @@ export default function Development() {
       env: v.env, serverHost: v.serverHost, serverUser: v.serverUser, serverPass: v.serverPass,
       anydeskId: v.anydeskId, anydeskPass: v.anydeskPass, dbName: v.dbName, dbUser: v.dbUser, dbPass: v.dbPass,
       appUrl: v.appUrl, notes: v.notes, developer: v.developer || 'PMO', status: 'Configured',
+      scheduleDate: v.scheduleDate || null,
       effortDays: 0, devDate: null, deployDate: null, progress: 0,
     }, ...prev]);
     toast.success('Deployment credentials saved', `${v.env} · ${p ? p.name.split(' — ')[0] : ''}`);
@@ -97,6 +98,7 @@ export default function Development() {
         submitLabel="Save Credentials" onSubmit={addItem}
         fields={[
           { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'scheduleDate', label: 'Schedule Date', type: 'date', full: true },
           { name: 'env', label: 'Environment', type: 'select', required: true, default: 'Production', options: ['Production', 'UAT', 'Staging', 'Training'] },
           { name: 'developer', label: 'Deployed By', type: 'select', required: true, options: ['Sana Qureshi', 'Karthik Rao', 'Vikram Menon'] },
           { name: 'serverHost', label: 'Server IP / Host', required: true, placeholder: '192.168.1.10 / server.hospital.local' },
@@ -126,6 +128,7 @@ function CredentialsView({ row, onCopy }) {
           <DetailRow label="Project">{row.projectName} <span className="mono t-xs ink-3">({row.projectCode})</span></DetailRow>
           <DetailRow label="Environment">{row.env ? <Badge tone={envTone[row.env] || 'neutral'}>{row.env}</Badge> : '—'}</DetailRow>
           <DetailRow label="Deployed By">{row.developer}</DetailRow>
+          <DetailRow label="Schedule Date">{row.scheduleDate ? fmtDate(row.scheduleDate) : '—'}</DetailRow>
           <DetailRow label="Status"><StatusBadge status={row.status} /></DetailRow>
         </div>
       </div>

@@ -103,6 +103,54 @@ export function SearchSelect({ options = [], value, onChange, placeholder = 'Sea
   );
 }
 
+// Multi-select dropdown (checkbox list + search + select-all)
+export function MultiSelect({ options = [], value = [], onChange, placeholder = 'Select…' }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  const norm = useMemo(() => options.map((o) => ({ value: o.value ?? o, label: o.label ?? o })), [options]);
+  const filtered = useMemo(() => {
+    const n = q.toLowerCase();
+    return norm.filter((o) => String(o.label).toLowerCase().includes(n));
+  }, [norm, q]);
+  const allOn = norm.length > 0 && value.length === norm.length;
+  const labelFor = (v) => norm.find((o) => o.value === v)?.label ?? v;
+  const toggle = (v) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+  const toggleAll = () => onChange(allOn ? [] : norm.map((o) => o.value));
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button type="button" className="input flex items-center justify-between gap-2" style={{ cursor: 'pointer', textAlign: 'left', minWidth: 0 }} onClick={() => setOpen((o) => !o)}>
+        <span className={`truncate ${value.length ? '' : 'ink-3'}`} style={{ minWidth: 0 }}>
+          {value.length ? (value.length <= 2 ? value.map(labelFor).join(', ') : `${value.length} selected`) : placeholder}
+        </span>
+        <ChevronDown size={15} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div className="menu-pop w-full" style={{ top: 'calc(100% + 6px)', left: 0, maxHeight: 300, overflowY: 'auto' }}>
+          <div className="searchbox" style={{ padding: '2px 2px 6px' }}>
+            <Search size={14} style={{ left: 12 }} />
+            <input className="input" autoFocus placeholder="Type to filter…" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 32 }} />
+          </div>
+          <button type="button" className="menu-item fw-6" style={{ color: 'var(--primary-700)' }} onClick={toggleAll}>{allOn ? 'Clear all' : 'Select all'}</button>
+          {filtered.length === 0 && <div className="t-sm ink-3 text-center" style={{ padding: 12 }}>No matches</div>}
+          {filtered.map((o) => {
+            const on = value.includes(o.value);
+            return (
+              <label key={o.value} className="menu-item flex items-center gap-2" style={{ cursor: 'pointer', ...(on ? { background: 'var(--primary-soft)', color: 'var(--primary-700)', fontWeight: 600 } : {}) }}>
+                <input type="checkbox" className="checkbox" checked={on} onChange={() => toggle(o.value)} />
+                {o.label}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Tag / chip input
 export function TagInput({ value = [], onChange, placeholder = 'Add and press Enter…', suggestions = [] }) {
   const [text, setText] = useState('');

@@ -4,9 +4,9 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Drawer } from './overlays';
-import { Field, Input, Textarea, Select, SearchSelect, TagInput, SwitchField } from './forms';
+import { Field, Input, Textarea, Select, SearchSelect, MultiSelect, TagInput, SwitchField } from './forms';
 
-const emptyFor = (f) => (f.type === 'tags' ? [] : f.type === 'checkbox' ? false : '');
+const emptyFor = (f) => (f.type === 'tags' || f.type === 'multiselect' ? [] : f.type === 'checkbox' ? false : '');
 
 export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields = [], initial, submitLabel = 'Save', submitIcon, onSubmit, intro }) {
   const build = () => {
@@ -22,7 +22,7 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
   const valid = visible.every((f) => {
     if (!f.required) return true;
     const v = values[f.name];
-    if (f.type === 'tags') return v.length > 0;
+    if (f.type === 'tags' || f.type === 'multiselect') return v.length > 0;
     if (f.type === 'checkbox') return v === true;
     return String(v ?? '').trim() !== '';
   });
@@ -36,7 +36,7 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
         <button className="btn btn-primary" disabled={!valid} onClick={submit}>{submitIcon || <CheckCircle2 size={14} />} {submitLabel}</button>
       </>}>
       {intro && <div className="card card-pad mb-4" style={{ background: 'var(--primary-softer)', border: '1px solid var(--primary-soft)' }}><div className="t-sm ink-2">{intro}</div></div>}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="form-grid">
         {visible.map((f) => (
           <div key={f.name} style={{ gridColumn: f.full ? '1 / -1' : 'auto' }}>
             {f.type === 'checkbox' ? (
@@ -51,6 +51,8 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
                 <Select value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} options={f.options} placeholder={f.placeholder || 'Select…'} />
               ) : f.type === 'search' ? (
                 <SearchSelect value={values[f.name]} onChange={(v) => set(f.name, v)} options={f.options} placeholder={f.placeholder || 'Search & select…'} />
+              ) : f.type === 'multiselect' ? (
+                <MultiSelect value={values[f.name]} onChange={(v) => set(f.name, v)} options={f.options} placeholder={f.placeholder || 'Select…'} />
               ) : f.type === 'tags' ? (
                 <TagInput value={values[f.name]} onChange={(v) => set(f.name, v)} suggestions={f.suggestions} placeholder={f.placeholder} />
               ) : (
