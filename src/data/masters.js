@@ -33,6 +33,7 @@ export const RISK_LEVELS = ['Low', 'Medium', 'High', 'Critical'];
 export const HEALTH = ['On Track', 'At Risk', 'Delayed', 'Blocked'];
 
 export const IMPLEMENTATION_TYPES = ['New Implementation', 'Migration', 'Upgrade', 'Add-on Module', 'Re-implementation'];
+export const INTEGRATION_TYPES = ['None', 'HL7', 'FHIR / ABDM', 'REST API', 'DICOM / PACS', 'Payment Gateway', 'Lab Analyzer', 'Custom'];
 export const HOSPITAL_TYPES = ['Multi-Specialty', 'Super-Specialty', 'Single-Specialty', 'Clinic Chain', 'Government', 'Trust / NGO', 'Diagnostic Center'];
 export const PROJECT_CATEGORY = ['Enterprise', 'Mid-Market', 'SMB', 'Government'];
 

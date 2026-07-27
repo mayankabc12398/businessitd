@@ -2,7 +2,7 @@
 // A workspace is chosen from the header switcher; the active one is derived
 // from the current route prefix so deep links keep the right menu.
 import {
-  LayoutDashboard, FolderKanban, Building2, Handshake, FileSignature,
+  LayoutDashboard, FolderKanban, Handshake, FileSignature,
   GitPullRequestArrow, Database, Code2, FlaskConical, CalendarRange, Contact,
   GraduationCap, Rocket, ShieldAlert, TriangleAlert, BadgeCheck,
   FolderOpen, BarChart3, Settings2, Users,
@@ -23,8 +23,7 @@ const PMO_MENU = [
   {
     group: 'Delivery',
     items: [
-      { path: '/projects', label: 'Projects', icon: FolderKanban, tint: 'blue', desc: 'Registration, lifecycle & implementation tracking' },
-      { path: '/clients', label: 'Clients & Hospitals', icon: Building2, tint: 'cyan', desc: 'Hospital groups, contacts & escalation matrix' },
+      { path: '/projects', label: 'Projects & Clients', icon: FolderKanban, tint: 'blue', desc: 'Projects lifecycle plus hospital groups, contacts & escalation' },
       { path: '/kickoff', label: 'Scope & Kick-off', icon: Handshake, tint: 'sky', desc: 'PO, purchased scope & kick-off meetings' },
       { path: '/srs', label: 'SRS Management', icon: FileSignature, tint: 'mint', desc: 'Department-wise SRS planning & sign-off' },
       { path: '/requirements', label: 'Requirements & CR', icon: GitPullRequestArrow, tint: 'lavender', desc: 'Gap analysis & change-request register' },

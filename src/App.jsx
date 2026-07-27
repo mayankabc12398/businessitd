@@ -7,7 +7,6 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Schedule = lazy(() => import('./pages/Schedule'));
 const HospitalUsers = lazy(() => import('./pages/Users'));
 const Projects = lazy(() => import('./pages/Projects'));
-const Clients = lazy(() => import('./pages/Clients'));
 const Kickoff = lazy(() => import('./pages/Kickoff'));
 const Srs = lazy(() => import('./pages/Srs'));
 const Requirements = lazy(() => import('./pages/Requirements'));
@@ -78,7 +77,7 @@ export default function App() {
             <Route path="schedule" element={page(<Schedule />)} />
             <Route path="users" element={page(<HospitalUsers />)} />
             <Route path="projects" element={page(<Projects />)} />
-            <Route path="clients" element={page(<Clients />)} />
+            <Route path="clients" element={page(<Projects initialTab="clients" />)} />
             <Route path="kickoff" element={page(<Kickoff />)} />
             <Route path="srs" element={page(<Srs />)} />
             <Route path="requirements" element={page(<Requirements />)} />

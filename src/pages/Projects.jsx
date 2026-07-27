@@ -1,22 +1,28 @@
-// Projects — registration, portfolio list, kanban board and a rich
-// per-project lifecycle detail drawer. The flagship module.
-import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+// Delivery — merged Projects + Clients & Hospitals workspace.
+// One screen, two tabs: Projects (registration, portfolio list, kanban board,
+// lifecycle detail drawer, 4-step register wizard) and Clients & Hospitals
+// (group directory, contacts, escalation matrix, add-client form). Each tab
+// keeps ALL of its original functionality; shared chrome (header, KPI grid,
+// filter card, data table, drawers) is reused per active tab.
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {
   FolderKanban, Plus, LayoutGrid, Table2, Rocket, ClipboardCheck, AlertTriangle,
   CircleDollarSign, Pencil, Eye, MoreVertical, CheckCircle2, Clock, Ban,
-  ArrowRight, FileSignature,
+  ArrowRight, FileSignature, CheckSquare, Square, Upload, FileText, X,
+  Building2, Bed, MapPin, Phone, Mail, Users, ShieldAlert, Globe, Layers,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import {
   PageHeader, MetricCard, DataTable, Drawer, Tabs, Segmented, Badge, StatusBadge,
   Avatar, ProgressBar, ProgressRing, Stepper, Timeline, DetailRow, Dropdown,
-  Field, Input, Select, SearchSelect, TagInput, useToast, Chip, Skeleton,
+  Field, Input, Select, SearchSelect, useToast, Chip, Skeleton, FormDrawer,
 } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { LIFECYCLE, PROJECT_STATUS, PRIORITIES, HEALTH, IMPLEMENTATION_TYPES, HIMS_MODULES } from '../data/masters';
+import { LIFECYCLE, PROJECT_STATUS, PRIORITIES, HEALTH, IMPLEMENTATION_TYPES, INTEGRATION_TYPES, HIMS_MODULES, HOSPITAL_TYPES, COUNTRIES } from '../data/masters';
 import { CLIENTS, findClient } from '../data/clients';
+import { PROJECTS } from '../data/projects';
 import { TEAM, findUser } from '../data/team';
 
 const money = (n, cur = 'INR') => {
@@ -37,31 +43,53 @@ const BOARD = [
   { key: 'Go-Live', stages: ['migration', 'parallel', 'golive', 'support', 'closure'], tint: 'green' },
 ];
 
-export default function Projects() {
-  const { data: projects, loading } = useApi(() => api.getProjects());
+export default function Projects({ initialTab = 'projects' }) {
+  const location = useLocation();
+  const { data: projects, loading: pLoading } = useApi(() => api.getProjects());
   const { data: kpis } = useApi(() => api.getProjectKpis());
+  const { data: clients, loading: cLoading } = useApi(() => api.getClients());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
+
+  const [tab, setTab] = useState(initialTab);
+
+  // ── Projects tab state ──
   const [view, setView] = useState('table');
   const [statusF, setStatusF] = useState('All');
   const [healthF, setHealthF] = useState('All');
-  const [active, setActive] = useState(null);
-  const [showNew, setShowNew] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [activeProj, setActiveProj] = useState(null);
+  const [showNewProj, setShowNewProj] = useState(false);
+  const [extraProj, setExtraProj] = useState([]);
 
-  const allProjects = useMemo(() => [...extra, ...(projects || [])], [extra, projects]);
+  // ── Clients tab state ──
+  const [typeF, setTypeF] = useState('All');
+  const [activeClient, setActiveClient] = useState(null);
+  const [showClient, setShowClient] = useState(false);
+  const [extraClient, setExtraClient] = useState([]);
 
-  // deep-links from global search / quick actions
+  const allProjects = useMemo(() => [...extraProj, ...(projects || [])], [extraProj, projects]);
+  const allClients = useMemo(() => [...extraClient, ...(clients || [])], [extraClient, clients]);
+
+  // deep-links from global search / quick actions — route decides the tab
   useEffect(() => {
-    if (params.get('new') === '1') { setShowNew(true); setParams({}, { replace: true }); }
     const code = params.get('code');
-    if (code && projects) { const p = projects.find((x) => x.code === code); if (p) setActive(p); setParams({}, { replace: true }); }
-  }, [params, projects, setParams]);
+    const id = params.get('id');
+    const isNew = params.get('new') === '1';
+    if (code && projects) { const p = projects.find((x) => x.code === code); if (p) { setTab('projects'); setActiveProj(p); } setParams({}, { replace: true }); return; }
+    if (id && clients) { const c = clients.find((x) => x.id === id); if (c) { setTab('clients'); setActiveClient(c); } setParams({}, { replace: true }); return; }
+    if (isNew) {
+      if (location.pathname === '/clients') { setTab('clients'); setShowClient(true); }
+      else { setTab('projects'); setShowNewProj(true); }
+      setParams({}, { replace: true });
+    }
+  }, [params, projects, clients, location.pathname, setParams]);
 
-  const filtered = useMemo(() => allProjects.filter((p) =>
+  const filteredProjects = useMemo(() => allProjects.filter((p) =>
     (statusF === 'All' || p.status === statusF) &&
     (healthF === 'All' || p.health === healthF)
   ), [allProjects, statusF, healthF]);
+
+  const filteredClients = useMemo(() => allClients.filter((c) => typeF === 'All' || c.type === typeF), [allClients, typeF]);
 
   const addProject = (f) => {
     const start = f.startDate || '2026-07-24';
@@ -75,18 +103,34 @@ export default function Projects() {
       category: 'Mid-Market', implType: f.implType, priority: f.priority, status: f.status || 'Planning',
       contractValue: Number(f.contractValue) || 0, poNumber: f.poNumber || '—', poDate: start,
       startDate: start, targetGoLive: f.targetGoLive || start, currency: f.currency || 'INR',
-      pm: f.pm || 'U-01', fc: 'U-02', tc: 'U-05', engineer: 'U-06', support: 'U-09', salesPerson: 'U-12',
+      pm: f.pm || 'U-01', fc: f.fc || 'U-02', tc: 'U-05', engineer: 'U-06', support: 'U-09', salesPerson: 'U-12',
       currentStage: 'registration', health: 'On Track', riskLevel: 'Low', users: 0,
-      modules: f.modules || [], interfaces: [], remarks: 'Newly registered project — lifecycle plan auto-generated.',
+      machines: Number(f.machines) || 0, integrationType: f.integrationType || 'None',
+      poDoc: f.poFile || null, otherDoc: f.otherFile || null,
+      modules: f.modules || [], interfaces: f.integrationType && f.integrationType !== 'None' ? [f.integrationType] : [],
+      remarks: 'Newly registered project — lifecycle plan auto-generated.',
       progress: Math.round((1.5 / LIFECYCLE.length) * 100), milestones, milestonesDone: 1, milestonesTotal: milestones.length,
       expectedCompletion: f.targetGoLive || start, openIssues: 0, pendingSignoffs: 0,
     };
-    setExtra((prev) => [proj, ...prev]);
+    setExtraProj((prev) => [proj, ...prev]);
     toast.success('Project registered', `${f.name} · ${proj.code}`);
-    setShowNew(false);
+    setShowNewProj(false);
   };
 
-  const columns = [
+  const addClient = (v) => {
+    const id = `CL-${String(allClients.length + 1).padStart(3, '0')}`;
+    setExtraClient((prev) => [{
+      id, name: v.name, group: v.group || v.name, type: v.type, country: v.country, state: v.state || '—', city: v.city || '—',
+      beds: Number(v.beds) || 0, branches: Number(v.branches) || 1, gst: v.gst || '—', timezone: '—', currency: (COUNTRIES.find((c) => c.label === v.country)?.currency) || 'INR',
+      since: '2026-07-24', activeProjects: 0, health: 'On Track',
+      contacts: [{ name: v.contactName || 'TBD', title: v.contactTitle || 'Client SPOC', phone: v.phone || '—', email: v.email || '—', primary: true }],
+      escalation: [{ level: 'L1', role: 'Project Manager', name: 'Rahul Sharma', sla: '4 hrs' }],
+    }, ...prev]);
+    toast.success('Client added', `${v.name} · ${id}`);
+    setShowClient(false);
+  };
+
+  const projColumns = [
     {
       key: 'name', header: 'Project', minWidth: 260, render: (p) => (
         <div className="flex items-center gap-3">
@@ -116,7 +160,7 @@ export default function Projects() {
       key: 'act', header: '', sortable: false, width: 44, render: (p) => (
         <Dropdown align="right" trigger={<button className="icon-btn" style={{ width: 30, height: 30 }}><MoreVertical size={15} /></button>}
           items={[
-            { icon: <Eye size={14} />, label: 'Open details', onClick: () => setActive(p) },
+            { icon: <Eye size={14} />, label: 'Open details', onClick: () => setActiveProj(p) },
             { icon: <Pencil size={14} />, label: 'Edit project', onClick: () => toast.info('Edit', p.code) },
             { icon: <FileSignature size={14} />, label: 'Record sign-off', onClick: () => toast.info('Sign-off', p.code) },
             { sep: true },
@@ -126,46 +170,114 @@ export default function Projects() {
     },
   ];
 
+  const clientColumns = [
+    { key: 'name', header: 'Hospital / Group', minWidth: 240, render: (c) => (
+      <div className="flex items-center gap-3"><Avatar name={c.name} hue={3} size="md" /><div><div className="fw-6 ink-1">{c.name}</div><div className="t-xs ink-3">{c.group} · {c.id}</div></div></div>
+    ) },
+    { key: 'type', header: 'Type', render: (c) => <Badge tone="info">{c.type}</Badge> },
+    { key: 'loc', header: 'Location', render: (c) => <span className="t-sm"><MapPin size={12} style={{ verticalAlign: -1 }} /> {c.city}, {c.country}</span> },
+    { key: 'beds', header: 'Beds', align: 'right', accessor: (c) => c.beds, render: (c) => <b className="tabular">{c.beds || '—'}</b> },
+    { key: 'branches', header: 'Branches', align: 'right', accessor: (c) => c.branches },
+    { key: 'proj', header: 'Projects', align: 'center', accessor: (c) => PROJECTS.filter((p) => p.clientId === c.id).length, render: (c) => <Badge tone="primary">{PROJECTS.filter((p) => p.clientId === c.id).length}</Badge> },
+    { key: 'health', header: 'Health', render: (c) => <StatusBadge status={c.health} tone={healthTone(c.health)} /> },
+  ];
+
+  const totalBeds = allClients.reduce((s, c) => s + c.beds, 0);
+  const isProjects = tab === 'projects';
+
   return (
     <div className="page">
       <PageHeader
-        icon={<FolderKanban size={22} />} tint="blue" title="Projects"
-        desc="End-to-end HIMS implementation tracking — registration to go-live"
-        crumbs={[{ label: 'Delivery' }, { label: 'Projects' }]}
-        actions={
+        icon={isProjects ? <FolderKanban size={22} /> : <Building2 size={22} />} tint={isProjects ? 'blue' : 'cyan'}
+        title="Projects & Clients"
+        desc={isProjects ? 'End-to-end HIMS implementation tracking — registration to go-live' : 'Hospital groups, contacts, escalation matrix and licensing'}
+        crumbs={[{ label: 'Delivery' }, { label: isProjects ? 'Projects' : 'Clients' }]}
+        actions={isProjects ? (
           <>
             <Segmented size="sm" value={view} onChange={setView} options={[{ value: 'table', icon: <Table2 size={14} />, label: 'Table' }, { value: 'board', icon: <LayoutGrid size={14} />, label: 'Board' }]} />
-            <button className="btn btn-primary" onClick={() => setShowNew(true)}><Plus size={15} /> New Project</button>
+            <button className="btn btn-primary" onClick={() => setShowNewProj(true)}><Plus size={15} /> New Project</button>
           </>
-        }
+        ) : (
+          <button className="btn btn-primary" onClick={() => setShowClient(true)}><Plus size={15} /> Add Client</button>
+        )}
       />
 
-      <div className="kpi-grid stagger">
-        <MetricCard label="Total Projects" value={kpis?.total ?? '—'} tint="blue" icon={<FolderKanban size={19} />} footer={`${kpis?.completed ?? 0} completed · ${kpis?.onHold ?? 0} on hold`} />
-        <MetricCard label="In Progress" value={kpis?.inProgress ?? '—'} tint="mint" icon={<Rocket size={19} />} footer={`${kpis?.uat ?? 0} in UAT`} />
-        <MetricCard label="At Risk / Delayed" value={kpis?.atRisk ?? '—'} tint="peach" icon={<AlertTriangle size={19} />} footer={`${kpis?.openIssues ?? 0} open issues`} />
-        <MetricCard label="Portfolio Value" value={kpis ? money(kpis.contractValue) : '—'} tint="lavender" icon={<CircleDollarSign size={19} />} footer={`${kpis?.pendingSignoffs ?? 0} pending sign-offs`} />
-      </div>
+      <Tabs active={tab} onChange={setTab} tabs={[
+        { key: 'projects', label: 'Projects', count: allProjects.length || undefined },
+        { key: 'clients', label: 'Clients & Hospitals', count: allClients.length || undefined },
+      ]} />
 
-      <div className="card card-pad" style={{ paddingBottom: 12 }}>
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Status</span>
-          {['All', ...PROJECT_STATUS].map((s) => <Chip key={s} active={statusF === s} onClick={() => setStatusF(s)}>{s}</Chip>)}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Health</span>
-          {['All', ...HEALTH].map((h) => <Chip key={h} active={healthF === h} onClick={() => setHealthF(h)}>{h}</Chip>)}
-        </div>
-      </div>
+      {isProjects ? (
+        <>
+          <div className="kpi-grid stagger">
+            <MetricCard label="Total Projects" value={kpis?.total ?? '—'} tint="blue" icon={<FolderKanban size={19} />} footer={`${kpis?.completed ?? 0} completed · ${kpis?.onHold ?? 0} on hold`} />
+            <MetricCard label="In Progress" value={kpis?.inProgress ?? '—'} tint="mint" icon={<Rocket size={19} />} footer={`${kpis?.uat ?? 0} in UAT`} />
+            <MetricCard label="At Risk / Delayed" value={kpis?.atRisk ?? '—'} tint="peach" icon={<AlertTriangle size={19} />} footer={`${kpis?.openIssues ?? 0} open issues`} />
+            <MetricCard label="Portfolio Value" value={kpis ? money(kpis.contractValue) : '—'} tint="lavender" icon={<CircleDollarSign size={19} />} footer={`${kpis?.pendingSignoffs ?? 0} pending sign-offs`} />
+          </div>
 
-      {view === 'table' ? (
-        <DataTable columns={columns} rows={filtered} loading={loading} onRowClick={setActive} exportName="projects.csv" searchPlaceholder="Search projects, codes, clients…" pageSize={10} />
+          <div className="card card-pad" style={{ paddingBottom: 12 }}>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Status</span>
+              {['All', ...PROJECT_STATUS].map((s) => <Chip key={s} active={statusF === s} onClick={() => setStatusF(s)}>{s}</Chip>)}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Health</span>
+              {['All', ...HEALTH].map((h) => <Chip key={h} active={healthF === h} onClick={() => setHealthF(h)}>{h}</Chip>)}
+            </div>
+          </div>
+
+          {view === 'table' ? (
+            <DataTable columns={projColumns} rows={filteredProjects} loading={pLoading} onRowClick={setActiveProj} exportName="projects.csv" searchPlaceholder="Search projects, codes, clients…" pageSize={10} />
+          ) : (
+            <Board projects={filteredProjects} loading={pLoading} onOpen={setActiveProj} />
+          )}
+        </>
       ) : (
-        <Board projects={filtered} loading={loading} onOpen={setActive} />
+        <>
+          <div className="kpi-grid stagger">
+            <MetricCard label="Total Clients" value={allClients.length || '—'} tint="cyan" icon={<Building2 size={19} />} footer={`${new Set(allClients.map(c=>c.country)).size} countries`} />
+            <MetricCard label="Total Beds Served" value={totalBeds.toLocaleString()} tint="blue" icon={<Bed size={19} />} footer="Across all facilities" />
+            <MetricCard label="Countries" value={new Set(allClients.map(c=>c.country)).size} tint="mint" icon={<Globe size={19} />} footer="India, UAE, KSA, Kenya, BD" />
+            <MetricCard label="Multi-branch Groups" value={allClients.filter(c=>c.branches>1).length} tint="lavender" icon={<Layers size={19} />} footer="Chains & networks" />
+          </div>
+
+          <div className="card card-pad" style={{ paddingBottom: 12 }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Type</span>
+              {['All', ...HOSPITAL_TYPES].map((t) => <Chip key={t} active={typeF === t} onClick={() => setTypeF(t)}>{t}</Chip>)}
+            </div>
+          </div>
+
+          <DataTable columns={clientColumns} rows={filteredClients} loading={cLoading} onRowClick={setActiveClient} exportName="clients.csv" searchPlaceholder="Search hospitals, groups, cities…" />
+        </>
       )}
 
-      <ProjectDrawer project={active} onClose={() => setActive(null)} />
-      <NewProjectDrawer open={showNew} onClose={() => setShowNew(false)} onSaved={addProject} />
+      {/* drawers & forms — kept mounted regardless of active tab */}
+      <ProjectDrawer project={activeProj} onClose={() => setActiveProj(null)} />
+      <NewProjectDrawer open={showNewProj} onClose={() => setShowNewProj(false)} onSaved={addProject} />
+      <ClientDrawer
+        client={activeClient}
+        onClose={() => setActiveClient(null)}
+        onNewProject={() => { setActiveClient(null); setTab('projects'); setShowNewProj(true); }}
+      />
+      <FormDrawer open={showClient} onClose={() => setShowClient(false)} title="Add Client / Hospital" subtitle="Register a new hospital or group"
+        submitLabel="Add Client" onSubmit={addClient}
+        fields={[
+          { name: 'name', label: 'Hospital / Client Name', required: true, full: true, placeholder: 'e.g. City Care Hospital' },
+          { name: 'group', label: 'Group Name', placeholder: 'Parent group' },
+          { name: 'type', label: 'Hospital Type', type: 'select', required: true, options: HOSPITAL_TYPES },
+          { name: 'country', label: 'Country', type: 'select', required: true, options: COUNTRIES.map((c) => c.label) },
+          { name: 'state', label: 'State / Region', placeholder: 'State' },
+          { name: 'city', label: 'City', placeholder: 'City' },
+          { name: 'beds', label: 'No. of Beds', type: 'number', placeholder: '0' },
+          { name: 'branches', label: 'Branches', type: 'number', placeholder: '1' },
+          { name: 'gst', label: 'Tax / Registration No.', full: true, placeholder: 'GST / TRN / VAT / PIN' },
+          { name: 'contactName', label: 'Primary Contact (SPOC)', placeholder: 'Full name' },
+          { name: 'contactTitle', label: 'Designation', placeholder: 'e.g. Medical Director' },
+          { name: 'phone', label: 'Phone', placeholder: '+91 …' },
+          { name: 'email', label: 'Email', type: 'email', placeholder: 'name@hospital.com' },
+        ]} />
     </div>
   );
 }
@@ -207,7 +319,7 @@ function Board({ projects, loading, onOpen }) {
   );
 }
 
-// ---------------- Detail drawer ----------------
+// ---------------- Project detail drawer ----------------
 function ProjectDrawer({ project, onClose }) {
   const [tab, setTab] = useState('overview');
   useEffect(() => { if (project) setTab('overview'); }, [project]);
@@ -348,8 +460,15 @@ function ProjectDrawer({ project, onClose }) {
 const STEPS = [{ title: 'Basics' }, { title: 'Client' }, { title: 'Commercials' }, { title: 'Scope & Team' }];
 function NewProjectDrawer({ open, onClose, onSaved }) {
   const [step, setStep] = useState(0);
-  const [f, setF] = useState({ name: '', clientId: '', implType: 'New Implementation', priority: 'Medium', status: 'Planning', poNumber: '', contractValue: '', currency: 'INR', startDate: '', targetGoLive: '', pm: '', modules: [] });
+  const [f, setF] = useState({ name: '', clientId: '', implType: 'New Implementation', priority: 'Medium', status: 'Planning', poNumber: '', contractValue: '', currency: 'INR', startDate: '', targetGoLive: '', pm: '', fc: '', machines: '', integrationType: '', modules: [], poFile: '', otherFile: '' });
+  const [moduleOpts, setModuleOpts] = useState(() => HIMS_MODULES.map((m) => m.name));
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const addModule = (raw) => {
+    const v = (raw || '').trim();
+    if (!v) return;
+    setModuleOpts((o) => (o.includes(v) ? o : [...o, v]));
+    setF((s) => ({ ...s, modules: s.modules.includes(v) ? s.modules : [...s.modules, v] }));
+  };
   useEffect(() => { if (open) { setStep(0); } }, [open]);
   const canNext = step === 0 ? f.name.trim() : step === 1 ? f.clientId : true;
 
@@ -378,7 +497,7 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
       )}
       {step === 1 && (
         <div className="flex-col gap-3">
-          <Field label="Client / Hospital" required help="Pick an existing client or add a new one from Clients"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={CLIENTS.map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` }))} placeholder="Search hospitals…" /></Field>
+          <Field label="Client / Hospital" required help="Pick an existing client or add a new one from the Clients tab"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={CLIENTS.map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` }))} placeholder="Search hospitals…" /></Field>
           {f.clientId && (() => { const c = findClient(f.clientId); return (
             <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
               <div className="detail-list">
@@ -407,14 +526,153 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
       )}
       {step === 3 && (
         <div className="flex-col gap-3">
-          <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={TEAM.filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
-          <Field label="Modules Purchased" help="Add HIMS modules included in this scope"><TagInput value={f.modules} onChange={(v) => set('modules', v)} suggestions={HIMS_MODULES.map((m) => m.name)} placeholder="Add module and press Enter…" /></Field>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={TEAM.filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
+            <Field label="Functional Consultant"><SearchSelect value={f.fc} onChange={(v) => set('fc', v)} options={TEAM.filter((t) => t.roleId === 'fc').map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a consultant…" /></Field>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Number of Machines"><Input type="number" min="0" value={f.machines} onChange={(e) => set('machines', e.target.value)} placeholder="0" /></Field>
+            <Field label="Integration Type"><Select value={f.integrationType} onChange={(e) => set('integrationType', e.target.value)} options={INTEGRATION_TYPES} placeholder="Select integration…" /></Field>
+          </div>
+
+          <ModuleMultiSelect options={moduleOpts} value={f.modules} onChange={(v) => set('modules', v)} onAddNew={addModule} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
+            <FileField label="Upload Purchase Order" icon={<Upload size={15} />} value={f.poFile} onChange={(v) => set('poFile', v)} />
+            <FileField label="Other Document" icon={<FileText size={15} />} value={f.otherFile} onChange={(v) => set('otherFile', v)} />
+          </div>
+
           <div className="card card-pad" style={{ background: 'var(--primary-softer)', border: '1px solid var(--primary-soft)' }}>
             <div className="flex items-center gap-2 fw-6 t-sm" style={{ color: 'var(--primary-700)' }}><ClipboardCheck size={15} /> Ready to register</div>
             <div className="t-sm ink-2 mt-1">A 19-stage lifecycle plan and milestone tracker will be auto-generated on save.</div>
           </div>
         </div>
       )}
+    </Drawer>
+  );
+}
+
+// ---------------- Module multi-select (checkbox grid + select-all + add-new) ----------------
+function ModuleMultiSelect({ options, value, onChange, onAddNew }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const allSelected = options.length > 0 && value.length === options.length;
+  const toggle = (m) => onChange(value.includes(m) ? value.filter((x) => x !== m) : [...value, m]);
+  const toggleAll = () => onChange(allSelected ? [] : [...options]);
+  const commit = () => { const v = name.trim(); if (v) onAddNew(v); setName(''); setAdding(false); };
+
+  return (
+    <div className="field" style={{ minWidth: 0 }}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="field-label" style={{ margin: 0 }}>
+          Modules Purchased {value.length > 0 && <Badge tone="primary">{value.length} selected</Badge>}
+        </span>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={toggleAll}>
+            {allSelected ? <><Square size={13} /> Clear</> : <><CheckSquare size={13} /> Select all</>}
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setAdding((a) => !a)}><Plus size={13} /> New Module</button>
+        </div>
+      </div>
+
+      {adding && (
+        <div className="flex items-center gap-2">
+          <Input autoFocus value={name} placeholder="New module name…" onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } if (e.key === 'Escape') { setName(''); setAdding(false); } }} />
+          <button type="button" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }} onClick={commit}>Add</button>
+        </div>
+      )}
+
+      <div className="mod-grid">
+        {options.map((m) => {
+          const on = value.includes(m);
+          return (
+            <label key={m} className={`mod-chip ${on ? 'on' : ''}`}>
+              <input type="checkbox" className="checkbox" checked={on} onChange={() => toggle(m)} />
+              <span className="truncate" title={m}>{m}</span>
+            </label>
+          );
+        })}
+      </div>
+      <span className="field-help">Tick modules in scope, use Select all, or add a custom one with New Module.</span>
+    </div>
+  );
+}
+
+// ---------------- File upload field (mock — stores the chosen file name) ----------------
+function FileField({ label, icon, value, onChange }) {
+  const ref = useRef(null);
+  return (
+    <div className="field" style={{ minWidth: 0 }}>
+      <label className="field-label">{label}</label>
+      <button type="button" className={`file-drop ${value ? 'has-file' : ''}`} onClick={() => ref.current?.click()}>
+        <span className="file-ic">{icon}</span>
+        <span className={`truncate ${value ? 'ink-1 fw-6' : 'ink-3'}`} style={{ flex: 1, minWidth: 0, textAlign: 'left' }} title={value || undefined}>{value || 'Choose file…'}</span>
+        {value
+          ? <X size={15} className="file-x" onClick={(e) => { e.stopPropagation(); onChange(''); }} />
+          : <span className="t-xs ink-3" style={{ flexShrink: 0 }}>Browse</span>}
+      </button>
+      <input ref={ref} type="file" hidden onChange={(e) => onChange(e.target.files?.[0]?.name || '')} />
+    </div>
+  );
+}
+
+// ---------------- Client detail drawer ----------------
+function ClientDrawer({ client, onClose, onNewProject }) {
+  if (!client) return null;
+  const c = client;
+  const projects = PROJECTS.filter((p) => p.clientId === c.id);
+  return (
+    <Drawer open={!!client} onClose={onClose} size="md" title={c.name} subtitle={`${c.group} · ${c.type}`}
+      headerExtra={<Badge tone={healthTone(c.health)}>{c.health}</Badge>}
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={onNewProject}><Plus size={14} /> New Project</button></>}>
+      <div className="flex-col gap-4">
+        <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+          <div className="detail-list">
+            <DetailRow label="Location">{c.city}, {c.state}, {c.country}</DetailRow>
+            <DetailRow label="Beds / Branches">{c.beds || '—'} beds · {c.branches} branches</DetailRow>
+            <DetailRow label="Tax / Reg">{c.gst}</DetailRow>
+            <DetailRow label="Currency">{c.currency}</DetailRow>
+            <DetailRow label="Timezone">{c.timezone}</DetailRow>
+            <DetailRow label="Client since">{c.since}</DetailRow>
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="card-title mb-3 flex items-center gap-2"><Users size={15} /> Key Contacts</div>
+          <div className="flex-col gap-2">
+            {c.contacts.map((ct) => (
+              <div key={ct.email} className="flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 10 }}>
+                <Avatar name={ct.name} hue={6} size="md" />
+                <div className="flex-1" style={{ minWidth: 0 }}>
+                  <div className="fw-6 t-sm">{ct.name} {ct.primary && <Badge tone="primary">SPOC</Badge>}</div>
+                  <div className="t-xs ink-3">{ct.title}</div>
+                </div>
+                <div className="t-xs ink-2 text-right hide-sm"><div><Phone size={11} /> {ct.phone}</div><div><Mail size={11} /> {ct.email}</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="card-title mb-3 flex items-center gap-2"><ShieldAlert size={15} /> Escalation Matrix</div>
+          <table className="data-table"><thead><tr><th>Level</th><th>Role</th><th>Name</th><th>SLA</th></tr></thead>
+            <tbody>{c.escalation.map((e) => <tr key={e.level}><td><Badge tone="neutral">{e.level}</Badge></td><td className="fw-6">{e.role}</td><td>{e.name}</td><td><Badge tone="warning">{e.sla}</Badge></td></tr>)}</tbody>
+          </table>
+        </div>
+
+        <div className="card card-pad">
+          <div className="card-title mb-3">Projects ({projects.length})</div>
+          <div className="flex-col gap-2">
+            {projects.map((p) => (
+              <div key={p.code} className="flex items-center justify-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                <div><div className="fw-6 t-sm">{p.name.split(' — ')[1] || p.name}</div><div className="t-xs ink-3">{p.code}</div></div>
+                <Badge tone={healthTone(p.health)}>{p.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </Drawer>
   );
 }
