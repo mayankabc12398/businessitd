@@ -1,12 +1,13 @@
 // Testing & UAT — module test coverage plus the bug tracker.
 import { useState, useMemo } from 'react';
-import { FlaskConical, Plus, Bug, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { FlaskConical, Plus, Bug, CheckCircle2, ShieldAlert, Tag, AlignLeft, User, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Tabs, Badge, StatusBadge, ProgressBar, Chip, FormDrawer, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Tabs, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { PROJECTS } from '../data/projects';
 import { HIMS_MODULES, SEVERITIES } from '../data/masters';
+import { BUG_CATEGORIES } from '../data/delivery';
 
 const sevTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
@@ -20,6 +21,8 @@ export default function Uat() {
   const [show, setShow] = useState(false);
   const [extraCases, setExtraCases] = useState([]);
   const [extraBugs, setExtraBugs] = useState([]);
+  const [activeUat, setActiveUat] = useState(null);
+  const [activeBug, setActiveBug] = useState(null);
 
   const allCases = useMemo(() => [...extraCases, ...(cases || [])], [extraCases, cases]);
   const allBugs = useMemo(() => [...extraBugs, ...(bugs || [])], [extraBugs, bugs]);
@@ -41,8 +44,8 @@ export default function Uat() {
   const addBug = (v) => {
     setExtraBugs((prev) => [{
       id: `BUG-${String(allBugs.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
-      title: v.title, module: v.module, severity: v.severity, status: 'Open', reportedBy: 'Client UAT',
-      assignedTo: v.assignedTo, reported: '2026-07-24', resolved: null,
+      title: v.title, module: v.module, severity: v.severity, category: v.category, details: v.details || '',
+      status: 'Open', reportedBy: 'Client UAT', assignedTo: v.assignedTo, reported: '2026-07-24', resolved: null,
     }, ...prev]);
     toast.success('Bug logged', v.title);
     setShow(false);
@@ -61,6 +64,7 @@ export default function Uat() {
   const bugCols = [
     { key: 'id', header: 'ID', width: 90, render: (r) => <span className="mono t-xs ink-3">{r.id}</span> },
     { key: 'title', header: 'Bug', minWidth: 240, render: (r) => <div><div className="fw-6 t-sm">{r.title}</div><div className="t-xs ink-3">{r.projectName} · {r.module}</div></div> },
+    { key: 'category', header: 'Category', render: (r) => r.category ? <Badge tone="info"><Tag size={10} /> {r.category}</Badge> : <span className="ink-3">—</span> },
     { key: 'severity', header: 'Severity', render: (r) => <Badge tone={sevTone[r.severity]}>{r.severity}</Badge> },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     { key: 'assigned', header: 'Assigned To' },
@@ -87,11 +91,11 @@ export default function Uat() {
       </div>
 
       {tab === 'uat'
-        ? <DataTable columns={uatCols} rows={fCases} loading={loading} exportName="uat-coverage.csv" searchPlaceholder="Search modules…" pageSize={15} />
-        : <DataTable columns={bugCols} rows={fBugs} loading={bl} exportName="bugs.csv" searchPlaceholder="Search bugs…" pageSize={15} />}
+        ? <DataTable columns={uatCols} rows={fCases} loading={loading} onRowClick={(r) => setActiveUat(r)} exportName="uat-coverage.csv" searchPlaceholder="Search modules…" pageSize={15} />
+        : <DataTable columns={bugCols} rows={fBugs} loading={bl} onRowClick={(r) => setActiveBug(r)} exportName="bugs.csv" searchPlaceholder="Search bugs…" pageSize={15} />}
 
       {tab === 'uat' ? (
-        <FormDrawer open={show} onClose={() => setShow(false)} title="New UAT Round" subtitle="Create a module UAT test cycle"
+        <FormDrawer key="uat-form" open={show} onClose={() => setShow(false)} title="New UAT Round" subtitle="Create a module UAT test cycle"
           submitLabel="Create Round" onSubmit={addUat}
           fields={[
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
@@ -100,16 +104,82 @@ export default function Uat() {
             { name: 'uatDate', label: 'UAT Date', type: 'date' },
           ]} />
       ) : (
-        <FormDrawer open={show} onClose={() => setShow(false)} title="Log Bug" subtitle="Report a defect found during testing"
+        <FormDrawer key="bug-form" open={show} onClose={() => setShow(false)} title="Log Bug" subtitle="Report a defect found during testing"
           submitLabel="Log Bug" onSubmit={addBug}
           fields={[
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
-            { name: 'title', label: 'Bug Summary', required: true, full: true, placeholder: 'Describe the defect…' },
-            { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
+            { name: 'title', label: 'Bug Summary', required: true, full: true, placeholder: 'Short one-line summary…' },
+            { name: 'category', label: 'Bug Category', type: 'select', required: true, default: 'Functional', options: BUG_CATEGORIES },
             { name: 'severity', label: 'Severity', type: 'select', required: true, default: 'Medium', options: SEVERITIES },
+            { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
             { name: 'assignedTo', label: 'Assign To', type: 'select', required: true, options: ['Sana Qureshi', 'Karthik Rao', 'Vikram Menon'] },
+            { name: 'details', label: 'Summary / Details', type: 'textarea', full: true, rows: 4, placeholder: 'Steps to reproduce, expected vs actual, environment…' },
           ]} />
       )}
+
+      {/* UAT round detail slide */}
+      <Drawer open={!!activeUat} onClose={() => setActiveUat(null)} size="md"
+        title={activeUat ? `${activeUat.module} — UAT Round` : ''} subtitle={activeUat ? `${activeUat.id} · ${activeUat.projectName}` : ''}
+        headerExtra={activeUat && <StatusBadge status={activeUat.status} />}
+        footer={<button className="btn btn-ghost" onClick={() => setActiveUat(null)}>Close</button>}>
+        {activeUat && (
+          <div className="flex-col gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {[['Cases', activeUat.total, 'lavender'], ['Passed', activeUat.passed, 'green'], ['Failed', activeUat.failed, 'rose'], ['Pending', activeUat.pending, 'peach']].map(([l, v, t]) => (
+                <div key={l} className="card card-pad text-center">
+                  <div className="t-2xl fw-8" style={{ color: `var(--tint-${t}-ink)` }}>{v}</div>
+                  <div className="t-xs ink-3">{l}</div>
+                </div>
+              ))}
+            </div>
+            <div className="card card-pad">
+              <div className="flex justify-between t-xs mb-1"><span className="ink-3">Coverage</span><b>{Math.round(activeUat.passed / activeUat.total * 100)}%</b></div>
+              <ProgressBar value={Math.round(activeUat.passed / activeUat.total * 100)} color={activeUat.passed === activeUat.total ? 'var(--success)' : 'var(--primary)'} />
+            </div>
+            <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+              <div className="detail-list">
+                <DetailRow label="Project">{activeUat.projectName} <span className="mono t-xs ink-3">({activeUat.projectCode})</span></DetailRow>
+                <DetailRow label="Module"><Badge tone="info">{activeUat.module}</Badge></DetailRow>
+                <DetailRow label="Tester">{activeUat.tester}</DetailRow>
+                <DetailRow label="UAT Date">{fmtDate(activeUat.uatDate)}</DetailRow>
+                <DetailRow label="Status"><StatusBadge status={activeUat.status} /></DetailRow>
+                <DetailRow label="Sign-off">{activeUat.signoff === 'Signed' ? <Badge tone="success"><CheckCircle2 size={11} /> Signed</Badge> : <Badge tone="pending">Pending</Badge>}</DetailRow>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      {/* Bug detail slide */}
+      <Drawer open={!!activeBug} onClose={() => setActiveBug(null)} size="md"
+        title={activeBug ? activeBug.title : ''} subtitle={activeBug ? `${activeBug.id} · ${activeBug.projectName}` : ''}
+        headerExtra={activeBug && <Badge tone={sevTone[activeBug.severity]}>{activeBug.severity}</Badge>}
+        footer={<button className="btn btn-ghost" onClick={() => setActiveBug(null)}>Close</button>}>
+        {activeBug && (
+          <div className="flex-col gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeBug.category && <Badge tone="info"><Tag size={11} /> {activeBug.category}</Badge>}
+              <Badge tone={sevTone[activeBug.severity]}><ShieldAlert size={11} /> {activeBug.severity}</Badge>
+              <StatusBadge status={activeBug.status} />
+            </div>
+            <div className="card card-pad">
+              <div className="flex items-center gap-2 card-title mb-2"><AlignLeft size={15} /> Summary / Details</div>
+              <div className="t-sm ink-2" style={{ lineHeight: 1.6 }}>{activeBug.details || 'No additional details provided.'}</div>
+            </div>
+            <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+              <div className="detail-list">
+                <DetailRow label="Project">{activeBug.projectName} <span className="mono t-xs ink-3">({activeBug.projectCode})</span></DetailRow>
+                <DetailRow label="Module"><Badge tone="neutral">{activeBug.module}</Badge></DetailRow>
+                <DetailRow label="Category">{activeBug.category || '—'}</DetailRow>
+                <DetailRow label="Reported By"><span className="flex items-center gap-1"><User size={13} /> {activeBug.reportedBy}</span></DetailRow>
+                <DetailRow label="Assigned To"><span className="flex items-center gap-1"><User size={13} /> {activeBug.assignedTo}</span></DetailRow>
+                <DetailRow label="Reported"><span className="flex items-center gap-1"><Calendar size={13} /> {fmtDate(activeBug.reported)}</span></DetailRow>
+                <DetailRow label="Resolved">{activeBug.resolved ? <span className="flex items-center gap-1"><Calendar size={13} /> {fmtDate(activeBug.resolved)}</span> : '—'}</DetailRow>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

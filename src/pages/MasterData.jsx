@@ -3,13 +3,33 @@ import { useState, useMemo } from 'react';
 import { Database, Plus, CheckCircle2, Clock, FileSpreadsheet, Upload, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast } from '../components/ui';
-import { fmtDate, fmtNum } from '../utils/format';
+import { PageHeader, MetricCard, DataTable, Chip, FormDrawer, useToast } from '../components/ui';
+import { fmtNum } from '../utils/format';
 import { PROJECTS } from '../data/projects';
 
 const MASTER_NAMES = ['Doctors / Consultants', 'Services & Tariff', 'Pharmacy Items', 'Lab Tests & Panels', 'Radiology Procedures', 'Departments & Wards', 'Bed Master', 'Insurance / TPA Panels', 'Diagnosis (ICD)', 'Suppliers & Vendors', 'Package Master', 'User & Role Master', 'Ledger / Chart of Accounts', 'Diet Master', 'Referral Doctors'];
 
-const YesNo = ({ v }) => v ? <CheckCircle2 size={16} color="var(--success)" /> : <Clock size={15} color="var(--text-3)" />;
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+// "12-march-2026 12:50pm"
+const fmtDT = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  let h = d.getHours(); const mi = d.getMinutes();
+  const ap = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return `${d.getDate()}-${MONTHS[d.getMonth()]}-${d.getFullYear()} ${h}:${String(mi).padStart(2, '0')}${ap}`;
+};
+
+// Icon + timestamp stacked cell for a request/receive/import step
+const StepCell = ({ done, at }) => (
+  <div className="flex-col items-center gap-1">
+    {done ? <CheckCircle2 size={16} color="var(--success)" /> : <Clock size={15} color="var(--text-3)" />}
+    {done && at
+      ? <span className="t-xs ink-3 nowrap" style={{ fontSize: 11 }}>{fmtDT(at)}</span>
+      : <span className="t-xs ink-3">—</span>}
+  </div>
+);
 
 export default function MasterData() {
   const { data: rows, loading } = useApi(() => api.getMasterData());
@@ -31,7 +51,7 @@ export default function MasterData() {
     setExtra((prev) => [{
       id: `MD-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
       master: v.master, requested: true, received: imported, imported,
-      requestedOn: '2026-07-24', receivedOn: imported ? '2026-07-24' : null,
+      requestedOn: '2026-07-24T10:00', receivedOn: imported ? '2026-07-24T10:05' : null, importedOn: imported ? '2026-07-24T10:10' : null,
       records, failed: 0, validation: imported ? 'Passed' : '—', owner: v.owner || 'PMO',
       status: imported ? 'Imported' : 'Awaited',
     }, ...prev]);
@@ -41,13 +61,10 @@ export default function MasterData() {
 
   const columns = [
     { key: 'master', header: 'Master', minWidth: 170, render: (r) => <div><div className="fw-6 t-sm">{r.master}</div><div className="t-xs ink-3">{r.projectName}</div></div> },
-    { key: 'requested', header: 'Requested', align: 'center', accessor: (r) => r.requested ? 1 : 0, render: (r) => <YesNo v={r.requested} /> },
-    { key: 'received', header: 'Received', align: 'center', accessor: (r) => r.received ? 1 : 0, render: (r) => <YesNo v={r.received} /> },
-    { key: 'imported', header: 'Imported', align: 'center', accessor: (r) => r.imported ? 1 : 0, render: (r) => <YesNo v={r.imported} /> },
+    { key: 'requested', header: 'Requested', align: 'center', minWidth: 150, accessor: (r) => r.requested ? 1 : 0, render: (r) => <StepCell done={r.requested} at={r.requestedOn} /> },
+    { key: 'received', header: 'Received', align: 'center', minWidth: 150, accessor: (r) => r.received ? 1 : 0, render: (r) => <StepCell done={r.received} at={r.receivedOn} /> },
+    { key: 'imported', header: 'Imported', align: 'center', minWidth: 150, accessor: (r) => r.imported ? 1 : 0, render: (r) => <StepCell done={r.imported} at={r.importedOn} /> },
     { key: 'records', header: 'Records', align: 'right', accessor: (r) => r.records, render: (r) => <b className="tabular">{r.records ? fmtNum(r.records) : '—'}</b> },
-    { key: 'failed', header: 'Failed', align: 'right', accessor: (r) => r.failed, render: (r) => r.failed ? <Badge tone="danger">{r.failed}</Badge> : <span className="ink-3">0</span> },
-    { key: 'validation', header: 'Validation', render: (r) => r.validation === 'Passed' ? <Badge tone="success">Passed</Badge> : r.validation === 'Errors' ? <Badge tone="danger"><AlertTriangle size={11} /> Errors</Badge> : r.validation === 'Pending' ? <Badge tone="pending">Pending</Badge> : <span className="ink-3">—</span> },
-    { key: 'receivedOn', header: 'Received On', accessor: (r) => r.receivedOn, nowrap: true, render: (r) => r.receivedOn ? fmtDate(r.receivedOn) : '—' },
     { key: 'owner', header: 'Owner' },
   ];
 

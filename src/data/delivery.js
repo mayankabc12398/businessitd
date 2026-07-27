@@ -71,6 +71,7 @@ const BUG_TITLES = [
 ];
 const BUG_STATUS = ['Open', 'In Progress', 'Fixed', 'Retest', 'Closed', 'Reopened'];
 const SEV = ['Critical', 'High', 'Medium', 'Low'];
+export const BUG_CATEGORIES = ['Functional', 'UI / UX', 'Performance', 'Data / Integrity', 'Integration', 'Security', 'Configuration'];
 export const BUGS = (() => {
   const r = makeRand(660100);
   const rows = [];
@@ -80,9 +81,13 @@ export const BUGS = (() => {
     const cnt = r.int(3, 8);
     for (let i = 0; i < cnt; i++) {
       const status = r.pick(BUG_STATUS);
+      const title = r.pick(BUG_TITLES);
+      const module = modName(r.pick(proj.modules));
+      const severity = r.pick(SEV);
       rows.push({
         id: `BUG-${pad(n++)}`, projectCode: code, projectName: proj.name.split(' — ')[0],
-        title: r.pick(BUG_TITLES), module: modName(r.pick(proj.modules)), severity: r.pick(SEV),
+        title, module, severity, category: r.pick(BUG_CATEGORIES),
+        details: `${title}. Found on the ${module} module during client UAT. ${severity} severity — requires ${severity === 'Critical' ? 'immediate' : 'scheduled'} fix and retest before sign-off.`,
         status, reportedBy: 'Client UAT', assignedTo: r.pick(DEVS),
         reported: isoDate(2026, r.int(4, 7), r.int(1, 27)),
         resolved: ['Fixed', 'Closed'].includes(status) ? isoDate(2026, r.int(5, 7), r.int(1, 27)) : null,

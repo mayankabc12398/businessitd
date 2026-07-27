@@ -4,9 +4,9 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Drawer } from './overlays';
-import { Field, Input, Textarea, Select, SearchSelect, TagInput } from './forms';
+import { Field, Input, Textarea, Select, SearchSelect, TagInput, SwitchField } from './forms';
 
-const emptyFor = (f) => (f.type === 'tags' ? [] : '');
+const emptyFor = (f) => (f.type === 'tags' ? [] : f.type === 'checkbox' ? false : '');
 
 export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields = [], initial, submitLabel = 'Save', submitIcon, onSubmit, intro }) {
   const build = () => {
@@ -22,7 +22,9 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
   const valid = visible.every((f) => {
     if (!f.required) return true;
     const v = values[f.name];
-    return f.type === 'tags' ? v.length > 0 : String(v ?? '').trim() !== '';
+    if (f.type === 'tags') return v.length > 0;
+    if (f.type === 'checkbox') return v === true;
+    return String(v ?? '').trim() !== '';
   });
 
   const submit = () => { if (valid) { onSubmit?.(values); } };
@@ -37,6 +39,11 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {visible.map((f) => (
           <div key={f.name} style={{ gridColumn: f.full ? '1 / -1' : 'auto' }}>
+            {f.type === 'checkbox' ? (
+              <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+                <SwitchField checked={!!values[f.name]} onChange={(v) => set(f.name, v)} label={f.label} desc={f.help} />
+              </div>
+            ) : (
             <Field label={f.label} required={f.required} help={f.help}>
               {f.type === 'textarea' ? (
                 <Textarea rows={f.rows || 3} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
@@ -50,6 +57,7 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
                 <Input type={f.type || 'text'} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
               )}
             </Field>
+            )}
           </div>
         ))}
       </div>

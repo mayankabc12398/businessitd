@@ -10,6 +10,7 @@ const MASTERS = [
   'Package Master', 'User & Role Master', 'Ledger / Chart of Accounts', 'Diet Master', 'Referral Doctors',
 ];
 const activeCodes = PROJECTS.filter((p) => !['Completed', 'Planning'].includes(p.status)).map((p) => p.code);
+const isoDT = (y, mo, da, hh, mi) => `${isoDate(y, mo, da)}T${pad(hh, 2)}:${pad(mi, 2)}`;
 
 export const MASTER_DATA = (() => {
   const r = makeRand(330077);
@@ -26,10 +27,14 @@ export const MASTER_DATA = (() => {
       const total = r.int(20, 4200);
       const failed = imported ? r.int(0, Math.floor(total * 0.04)) : 0;
       const status = imported ? (failed > 0 ? 'Imported (with errors)' : 'Imported') : received ? 'Validation Pending' : 'Awaited';
+      // chronological: requested → received → imported
+      const reqM = r.int(1, 4), recM = reqM + r.int(0, 2), impM = recM + r.int(0, 2);
       rows.push({
         id: `MD-${pad(n++)}`, projectCode: code, projectName: proj.name.split(' — ')[0], master: m,
-        requested, received, imported, requestedOn: isoDate(2026, r.int(1, 6), r.int(1, 27)),
-        receivedOn: received ? isoDate(2026, r.int(2, 7), r.int(1, 27)) : null,
+        requested, received, imported,
+        requestedOn: isoDT(2026, reqM, r.int(1, 27), r.int(9, 18), r.int(0, 59)),
+        receivedOn: received ? isoDT(2026, recM, r.int(1, 27), r.int(9, 18), r.int(0, 59)) : null,
+        importedOn: imported ? isoDT(2026, impM, r.int(1, 27), r.int(9, 18), r.int(0, 59)) : null,
         records: imported ? total : received ? total : 0, failed,
         validation: imported ? (failed > 0 ? 'Errors' : 'Passed') : received ? 'Pending' : '—',
         owner: r.pick(['Neha Patel', 'Amit Verma', 'Meera Krishnan']), status,

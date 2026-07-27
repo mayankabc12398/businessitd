@@ -34,13 +34,19 @@ export default function Requirements() {
 
   const addReq = (v) => {
     const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const name = p ? p.name.split(' — ')[0] : v.projectCode;
+    const id = `REQ-${String(allRows.length + 1).padStart(3, '0')}`;
     setExtra((prev) => [{
-      id: `REQ-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+      id, projectCode: v.projectCode, projectName: name,
       title: v.title, dept: v.dept, type: v.type, priority: v.priority, status: 'In Discussion',
       effortDays: Number(v.effortDays) || 0, raisedBy: v.raisedBy || 'PMO', approvedBy: '—', signoffDate: null,
       crValue: v.type === 'Change Request' ? (Number(v.crValue) || 0) : 0,
     }, ...prev]);
-    toast.success('Requirement logged', v.title);
+    toast.success('Requirement logged', `${id} · ${v.title}`);
+    if (v.notify !== false) {
+      api.actOn('requirement', id, 'notify', v.title);
+      toast.success(`${v.type} emailed`, `${id} sent to ${v.raisedBy || 'PMO'}, ${v.dept} dept & ${name} project owner`);
+    }
     setShow(false);
   };
 
@@ -87,6 +93,7 @@ export default function Requirements() {
           { name: 'effortDays', label: 'Effort (days)', type: 'number', placeholder: '0' },
           { name: 'crValue', label: 'CR Value (₹)', type: 'number', placeholder: '0', help: 'Only for change requests', show: (v) => v.type === 'Change Request' },
           { name: 'raisedBy', label: 'Raised By', placeholder: 'Consultant name' },
+          { name: 'notify', label: 'Send email notification on save', type: 'checkbox', default: true, full: true, help: 'Email the requirement/CR to the raised-by, department & project owner' },
         ]} />
     </div>
   );
