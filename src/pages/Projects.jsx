@@ -456,12 +456,35 @@ function ProjectDrawer({ project, onClose }) {
   );
 }
 
+// ---------------- Inline list-builder section (machines, integrations) ----------------
+function BuilderSection({ icon, title, count, max = null, addDisabled = false, addLabel, onAdd, emptyHint, tint = 'blue', children }) {
+  return (
+    <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="flex items-center gap-2" style={{ minWidth: 0 }}>
+          <span className="metric-icon" style={{ width: 30, height: 30, borderRadius: 8, background: `var(--tint-${tint})`, color: `var(--tint-${tint}-ink)` }}>{icon}</span>
+          <span className="fw-6 t-sm">{title}</span>
+          {(count > 0 || max != null) && <Badge tone="primary">{max != null ? `${count} / ${max}` : count}</Badge>}
+        </span>
+        <button type="button" className="btn btn-primary btn-sm" disabled={addDisabled} title={addDisabled ? 'Limit reached' : undefined} onClick={onAdd}><Plus size={14} /> {addLabel}</button>
+      </div>
+      {count > 0
+        ? <div className="flex-col gap-2 mt-3">{children}</div>
+        : <div className="t-xs ink-3 text-center" style={{ marginTop: 12, padding: '14px 10px', border: '1px dashed var(--border-strong)', borderRadius: 10 }}>{emptyHint}</div>}
+    </div>
+  );
+}
+
 // ---------------- New project wizard ----------------
-const STEPS = [{ title: 'Basics' }, { title: 'Client' }, { title: 'Commercials' }, { title: 'Scope & Team' }];
+const STEPS = [{ title: 'Basics & Client' }, { title: 'Commercials' }, { title: 'Scope & Team' }];
 function NewProjectDrawer({ open, onClose, onSaved }) {
   const [step, setStep] = useState(0);
-  const [f, setF] = useState({ name: '', clientId: '', implType: 'New Implementation', priority: 'Medium', status: 'Planning', poNumber: '', contractValue: '', currency: 'INR', startDate: '', targetGoLive: '', pm: '', fc: '', machines: '', integrationType: '', modules: [], poFile: '', otherFile: '' });
+  const [f, setF] = useState({ name: '', clientId: '', implType: 'New Implementation', priority: 'Medium', status: 'Planning', poNumber: '', contractValue: '', currency: 'INR', startDate: '', targetGoLive: '', pm: '', fc: '', machines: '', integrationType: '', modules: [], machineList: [], integrationList: [], poFile: '', otherFile: '' });
   const [moduleOpts, setModuleOpts] = useState(() => HIMS_MODULES.map((m) => m.name));
+  const [newClient, setNewClient] = useState(false);
+  const [machineForm, setMachineForm] = useState(false);
+  const [intForm, setIntForm] = useState(false);
+  const [, bump] = useState(0); // force re-render after CLIENTS mutation
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const addModule = (raw) => {
     const v = (raw || '').trim();
@@ -469,11 +492,35 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
     setModuleOpts((o) => (o.includes(v) ? o : [...o, v]));
     setF((s) => ({ ...s, modules: s.modules.includes(v) ? s.modules : [...s.modules, v] }));
   };
-  useEffect(() => { if (open) { setStep(0); } }, [open]);
-  const canNext = step === 0 ? f.name.trim() : step === 1 ? f.clientId : true;
+  const addClient = (v) => {
+    const c = {
+      id: `CL-N${CLIENTS.length + 1}`, name: v.name.trim(), group: v.group || v.name.trim(),
+      type: v.type || 'Multi-Specialty', country: v.country || 'India', city: v.city || '', beds: v.beds ? Number(v.beds) : 0,
+      contacts: v.spoc ? [{ name: v.spoc, title: 'Client SPOC', primary: true }] : [], escalation: [],
+    };
+    CLIENTS.unshift(c);
+    set('clientId', c.id);
+    setNewClient(false);
+    bump((n) => n + 1);
+  };
+  const addMachine = (v) => {
+    setF((s) => {
+      const cap = Number(s.machines) || 0;
+      if (s.machineList.length >= cap) return s; // never exceed Number of Machines
+      return { ...s, machineList: [...s.machineList, { name: v.machineName.trim(), model: v.modelName || '', type: v.type || 'Network', remark: v.remark || '' }] };
+    });
+    setMachineForm(false);
+  };
+  const addIntegration = (v) => {
+    const name = v.name.trim();
+    setF((s) => ({ ...s, integrationList: [...s.integrationList, { name, remark: v.remark || '' }], integrationType: name }));
+    setIntForm(false);
+  };
+  useEffect(() => { if (open) { setStep(0); setNewClient(false); setMachineForm(false); setIntForm(false); } }, [open]);
+  const canNext = step === 0 ? (f.name.trim() && f.clientId) : true;
 
   return (
-    <Drawer open={open} onClose={onClose} size="md" title="Register New Project" subtitle="Create a new HIMS implementation project"
+    <Drawer open={open} onClose={onClose} size="wide" title="Register New Project" subtitle="Create a new HIMS implementation project"
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -493,25 +540,35 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
             <Field label="Priority"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={PRIORITIES} /></Field>
           </div>
           <Field label="Initial Status"><Select value={f.status} onChange={(e) => set('status', e.target.value)} options={PROJECT_STATUS} /></Field>
-        </div>
-      )}
-      {step === 1 && (
-        <div className="flex-col gap-3">
-          <Field label="Client / Hospital" required help="Pick an existing client or add a new one from the Clients tab"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={CLIENTS.map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` }))} placeholder="Search hospitals…" /></Field>
-          {f.clientId && (() => { const c = findClient(f.clientId); return (
+
+          <Field label="Client / Hospital" required help="Pick an existing client or create a new one below"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={CLIENTS.map((c) => ({ value: c.id, label: `${c.name}${c.city ? ` — ${c.city}` : ''}` }))} placeholder="Search hospitals…" /></Field>
+          <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setNewClient(true)}><Plus size={14} /> Create Client / Hospital</button>
+          {f.clientId && (() => { const c = findClient(f.clientId); return c ? (
             <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
               <div className="detail-list">
                 <DetailRow label="Group">{c.group}</DetailRow>
                 <DetailRow label="Type">{c.type}</DetailRow>
                 <DetailRow label="Beds">{c.beds || '—'}</DetailRow>
-                <DetailRow label="Location">{c.city}, {c.country}</DetailRow>
-                <DetailRow label="SPOC">{c.contacts?.find((x) => x.primary)?.name}</DetailRow>
+                <DetailRow label="Location">{[c.city, c.country].filter(Boolean).join(', ') || '—'}</DetailRow>
+                <DetailRow label="SPOC">{c.contacts?.find((x) => x.primary)?.name || '—'}</DetailRow>
               </div>
             </div>
-          ); })()}
+          ) : null; })()}
+
+          <FormDrawer open={newClient} onClose={() => setNewClient(false)} title="Create Client / Hospital" subtitle="Add a new hospital to the directory"
+            submitLabel="Create Client" onSubmit={addClient}
+            fields={[
+              { name: 'name', label: 'Hospital Name', required: true, full: true, placeholder: 'e.g. Lumumba Hospital' },
+              { name: 'group', label: 'Group', placeholder: 'Parent group' },
+              { name: 'type', label: 'Type', type: 'select', default: 'Multi-Specialty', options: HOSPITAL_TYPES },
+              { name: 'city', label: 'City', placeholder: 'e.g. Nairobi' },
+              { name: 'country', label: 'Country', type: 'select', default: 'India', options: COUNTRIES },
+              { name: 'beds', label: 'Beds', type: 'number', placeholder: '0' },
+              { name: 'spoc', label: 'Client SPOC', full: true, placeholder: 'Primary contact name' },
+            ]} />
         </div>
       )}
-      {step === 2 && (
+      {step === 1 && (
         <div className="flex-col gap-3">
           <Field label="PO Number"><Input value={f.poNumber} onChange={(e) => set('poNumber', e.target.value)} placeholder="PO-XXXX-00000" /></Field>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
@@ -524,7 +581,7 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
           </div>
         </div>
       )}
-      {step === 3 && (
+      {step === 2 && (
         <div className="flex-col gap-3">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={TEAM.filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
@@ -532,10 +589,52 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Number of Machines"><Input type="number" min="0" value={f.machines} onChange={(e) => set('machines', e.target.value)} placeholder="0" /></Field>
-            <Field label="Integration Type"><Select value={f.integrationType} onChange={(e) => set('integrationType', e.target.value)} options={INTEGRATION_TYPES} placeholder="Select integration…" /></Field>
+            <Field label="Integration Type">
+              <div className="flex items-center gap-2">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Select value={f.integrationType} onChange={(e) => set('integrationType', e.target.value)} options={[...INTEGRATION_TYPES, ...f.integrationList.map((i) => i.name).filter((n) => !INTEGRATION_TYPES.includes(n))]} placeholder="Select…" />
+                </div>
+                <button type="button" className="btn btn-primary btn-icon btn-sm" title="Add integration" onClick={() => setIntForm(true)}><Plus size={15} /></button>
+              </div>
+            </Field>
           </div>
 
+          {/* Machine / hardware details builder — only when a machine count is set, capped at that count */}
+          {Number(f.machines) > 0 && (
+          <BuilderSection icon={<Layers size={16} />} tint="peach" title="Machine / Hardware Details" count={f.machineList.length}
+            max={Number(f.machines)} addDisabled={f.machineList.length >= Number(f.machines)}
+            addLabel="Add Machine" onAdd={() => setMachineForm(true)} emptyHint={`Add up to ${Number(f.machines)} machine${Number(f.machines) > 1 ? 's' : ''} — click “Add Machine”.`}>
+            {f.machineList.map((m, i) => (
+              <div key={i} className="flex items-center gap-3" style={{ padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <span className="metric-icon" style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--tint-peach)', color: 'var(--tint-peach-ink)' }}><Layers size={14} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="fw-6 t-sm truncate">{m.name}{m.model && <span className="ink-3 t-xs"> · {m.model}</span>}</div>
+                  {m.remark && <div className="t-xs ink-3 truncate">{m.remark}</div>}
+                </div>
+                <Badge tone={m.type === 'Network' ? 'info' : 'neutral'}>{m.type}</Badge>
+                <button type="button" className="icon-btn" style={{ width: 26, height: 26 }} title="Remove" onClick={() => setF((s) => ({ ...s, machineList: s.machineList.filter((_, x) => x !== i) }))}><X size={13} /></button>
+              </div>
+            ))}
+          </BuilderSection>
+          )}
+
           <ModuleMultiSelect options={moduleOpts} value={f.modules} onChange={(v) => set('modules', v)} onAddNew={addModule} />
+
+          <FormDrawer open={machineForm} onClose={() => setMachineForm(false)} title="Add Machine / Hardware" subtitle="Capture machine or component details"
+            submitLabel="Add Machine" onSubmit={addMachine}
+            fields={[
+              { name: 'machineName', label: 'Machine Name', required: true, full: true, placeholder: 'e.g. Billing Counter PC-01' },
+              { name: 'modelName', label: 'Model Name', placeholder: 'e.g. Dell OptiPlex 3090' },
+              { name: 'type', label: 'Type', type: 'select', default: 'Network', options: ['Network', 'Component'] },
+              { name: 'remark', label: 'Remark', type: 'textarea', full: true, rows: 3, placeholder: 'Notes…' },
+            ]} />
+
+          <FormDrawer open={intForm} onClose={() => setIntForm(false)} title="Add Integration" subtitle="Capture an integration for this project"
+            submitLabel="Add Integration" onSubmit={addIntegration}
+            fields={[
+              { name: 'name', label: 'Integration Name', required: true, full: true, placeholder: 'e.g. Payment Gateway, HL7 ADT' },
+              { name: 'remark', label: 'Remark', type: 'textarea', full: true, rows: 3, placeholder: 'Notes…' },
+            ]} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
             <FileField label="Upload Purchase Order" icon={<Upload size={15} />} value={f.poFile} onChange={(v) => set('poFile', v)} />

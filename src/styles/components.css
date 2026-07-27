@@ -432,6 +432,7 @@ table.data-table tbody tr:last-child td { border-bottom: none; }
   animation: slideInRight var(--dur-slow) var(--ease);
   border-left: 1px solid var(--border);
 }
+.drawer.drawer-wide { width: min(678px, 95vw); }
 .drawer.drawer-lg { width: min(836px, 96vw); }
 .drawer.drawer-xl { width: min(1056px, 97vw); }
 .drawer-head {
@@ -459,6 +460,7 @@ table.data-table tbody tr:last-child td { border-bottom: none; }
 }
 .modal-lg { width: min(760px, 100%); }
 .modal-xl { width: min(1020px, 100%); }
+.modal-full { width: 96vw; max-width: 1600px; max-height: 92vh; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 24px 0; }
 .modal-body { padding: 18px 24px; overflow-y: auto; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--surface-2); }

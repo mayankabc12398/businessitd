@@ -16,6 +16,7 @@ const PMO_MENU = [
     group: 'Overview',
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', end: true, desc: 'Portfolio-wide implementation overview' },
+      { path: '/projects', label: 'Projects & Clients', icon: FolderKanban, tint: 'blue', desc: 'Projects lifecycle plus hospital groups, contacts & escalation' },
       { path: '/onboarding', label: 'Onboarding', icon: Route, tint: 'lavender', desc: 'Guided 3-step implementation onboarding wizard' },
       { path: '/schedule', label: 'Activity Schedule', icon: CalendarRange, tint: 'blue', desc: 'Phase-wise implementation plan — planned vs actual dates' },
       { path: '/users', label: 'Department Contacts', icon: Contact, tint: 'cyan', desc: 'Department-wise HIMS user roster & access type' },
@@ -24,7 +25,6 @@ const PMO_MENU = [
   {
     group: 'Delivery',
     items: [
-      { path: '/projects', label: 'Projects & Clients', icon: FolderKanban, tint: 'blue', desc: 'Projects lifecycle plus hospital groups, contacts & escalation' },
       { path: '/kickoff', label: 'Scope & Kick-off', icon: Handshake, tint: 'sky', desc: 'PO, purchased scope & kick-off meetings' },
       { path: '/srs', label: 'SRS Management', icon: FileSignature, tint: 'mint', desc: 'Department-wise SRS planning & sign-off' },
       { path: '/requirements', label: 'Requirements & CR', icon: GitPullRequestArrow, tint: 'lavender', desc: 'Gap analysis & change-request register' },

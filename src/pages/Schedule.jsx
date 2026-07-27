@@ -6,8 +6,6 @@ import {
   CalendarRange, ListChecks, CheckCircle2, Clock, Hourglass, RotateCcw,
   Plus, PenLine, Trash2,
 } from 'lucide-react';
-import { api } from '../services/api';
-import { useApi } from '../hooks/useApi';
 import {
   PageHeader, MetricCard, DataTable, Badge, StatusBadge, Field,
   Drawer, DetailRow, FormDrawer, ConfirmDialog, useToast,
@@ -16,6 +14,9 @@ import { fmtDate } from '../utils/format';
 import {
   SCHEDULE_PHASES, SCHEDULE_CLINICS, SCHEDULE_STATUSES, SCHEDULE_MODES,
 } from '../data/schedule';
+import { PROJECTS } from '../data/projects';
+import { HIMS_MODULES } from '../data/masters';
+import { getActivities, setActivities, subscribeActivities } from '../data/activitiesStore';
 
 const modeTone = { Onsite: 'info', Offsite: 'neutral' };
 const phaseTone = { '1': 'info', '2': 'warning', '1,2': 'success' };
@@ -25,13 +26,14 @@ const BLANK = { q: '', phase: 'All', clinic: 'All', status: 'All', mode: 'All', 
 const EMPTY = [];
 
 export default function Schedule() {
-  const { data: rows, loading } = useApi(() => api.getActivitySchedule());
   const toast = useToast();
 
-  // local editable copy — seeded from the API once, then CRUD mutates it
-  const [items, setItems] = useState(null);
-  useEffect(() => { if (rows && items === null) setItems(rows); }, [rows, items]);
+  // shared store — Activity Schedule CRUD is the single source of truth,
+  // also read by the Kick-off modal (per project)
+  const [items, setItems] = useState(getActivities);
+  useEffect(() => subscribeActivities(setItems), []);
   const list = items || EMPTY;
+  const loading = false;
 
   const [f, setF] = useState(BLANK);
   const [formOpen, setFormOpen] = useState(false);
@@ -71,19 +73,22 @@ export default function Schedule() {
   const normalize = (v) => ({
     activity: v.activity.trim(),
     phase: v.phase, clinic: v.clinic, status: v.status, mode: v.mode, group: v.group,
+    modules: Array.isArray(v.modules) ? v.modules : [],
     days: v.days === '' || v.days == null ? null : Number(v.days),
     startDate: v.startDate || null, endDate: v.endDate || null,
     actualStart: v.actualStart || null, actualEnd: v.actualEnd || null,
+    projectCode: v.projectCode || null,
+    projectName: v.projectCode ? (PROJECTS.find((x) => x.code === v.projectCode)?.name.split(' — ')[0] || '') : '',
   });
 
   const submitForm = (v) => {
     const data = normalize(v);
     if (editRow) {
-      setItems((prev) => prev.map((r) => (r.id === editRow.id ? { ...r, ...data } : r)));
+      setActivities((prev) => prev.map((r) => (r.id === editRow.id ? { ...r, ...data } : r)));
       toast.success('Activity updated', data.activity);
     } else {
       const nextNum = list.reduce((m, r) => Math.max(m, +String(r.id).split('-')[1] || 0), 0) + 1;
-      setItems((prev) => [{ id: `ACT-${String(nextNum).padStart(3, '0')}`, ...data }, ...prev]);
+      setActivities((prev) => [{ id: `ACT-${String(nextNum).padStart(3, '0')}`, ...data }, ...prev]);
       toast.success('Activity added', data.activity);
     }
     setFormOpen(false); setEditRow(null);
@@ -91,7 +96,7 @@ export default function Schedule() {
 
   const confirmDelete = () => {
     if (!delRow) return;
-    setItems((prev) => prev.filter((r) => r.id !== delRow.id));
+    setActivities((prev) => prev.filter((r) => r.id !== delRow.id));
     toast.success('Activity deleted', delRow.activity);
     if (viewId === delRow.id) setViewId(null);
     setDelRow(null);
@@ -99,7 +104,7 @@ export default function Schedule() {
 
   const columns = [
     { key: 'activity', header: 'Activity Schedule', minWidth: 300, render: (r) => (
-      <div><div className="fw-6 t-sm">{r.activity}</div><div className="t-xs ink-3">{r.group}</div></div>
+      <div><div className="fw-6 t-sm">{r.activity}</div><div className="t-xs ink-3">{r.group}{r.projectName ? ` · ${r.projectName}` : ''}</div></div>
     ) },
     { key: 'phase', header: 'Phase', render: (r) => <Badge tone={phaseTone[r.phase] || 'neutral'}>{r.phase}</Badge> },
     { key: 'clinic', header: 'Hospital Name', minWidth: 180 },
@@ -120,9 +125,11 @@ export default function Schedule() {
 
   const formFields = [
     { name: 'activity', label: 'Activity Schedule', required: true, full: true, placeholder: 'e.g. Training & UAT of Phase-1 Modules' },
+    { name: 'projectCode', label: 'Project / Client', type: 'search', full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })), help: 'Link this activity to a project — it appears in that project’s kick-off view' },
     { name: 'group', label: 'Module Group', type: 'select', required: true, default: GROUPS[0], options: GROUPS },
     { name: 'phase', label: 'Phase', type: 'select', required: true, default: '1', options: SCHEDULE_PHASES.map((p) => ({ value: p, label: `Phase ${p}` })) },
     { name: 'clinic', label: 'Hospital Name', type: 'select', required: true, default: SCHEDULE_CLINICS[0], options: SCHEDULE_CLINICS },
+    { name: 'modules', label: 'Module Name', type: 'multiselect', full: true, options: HIMS_MODULES.map((m) => m.name), placeholder: 'Select one or more modules…' },
     { name: 'status', label: 'Status', type: 'select', required: true, default: 'Pending', options: SCHEDULE_STATUSES },
     { name: 'mode', label: 'Onsite / Offsite', type: 'select', required: true, default: 'Onsite', options: SCHEDULE_MODES },
     { name: 'days', label: 'Days Required', type: 'number', placeholder: 'e.g. 22' },
@@ -203,22 +210,66 @@ export default function Schedule() {
           <button className="btn btn-ghost" onClick={() => setDelRow(viewRow)}><Trash2 size={14} /> Delete</button>
           <button className="btn btn-primary" onClick={() => { openEdit(viewRow); setViewId(null); }}><PenLine size={14} /> Edit</button>
         </>}>
-        {viewRow && (
-          <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
-            <div className="detail-list">
-              <DetailRow label="Activity">{viewRow.activity}</DetailRow>
-              <DetailRow label="Phase"><Badge tone={phaseTone[viewRow.phase] || 'neutral'}>{viewRow.phase}</Badge></DetailRow>
-              <DetailRow label="Hospital Name">{viewRow.clinic}</DetailRow>
-              <DetailRow label="Status"><StatusBadge status={viewRow.status} /></DetailRow>
-              <DetailRow label="Onsite / Offsite">{viewRow.mode || '—'}</DetailRow>
-              <DetailRow label="Days Required">{viewRow.days ?? '—'}</DetailRow>
-              <DetailRow label="Start Date">{fmtDate(viewRow.startDate)}</DetailRow>
-              <DetailRow label="End Date">{fmtDate(viewRow.endDate)}</DetailRow>
-              <DetailRow label="Actual Start Date">{viewRow.actualStart ? fmtDate(viewRow.actualStart) : '—'}</DetailRow>
-              <DetailRow label="Actual End Date">{viewRow.actualEnd ? fmtDate(viewRow.actualEnd) : '—'}</DetailRow>
+        {viewRow && (() => {
+          const variance = viewRow.actualEnd && viewRow.endDate
+            ? (viewRow.actualEnd > viewRow.endDate ? { label: 'Delayed', tone: 'danger' } : viewRow.actualEnd < viewRow.endDate ? { label: 'Ahead of plan', tone: 'success' } : { label: 'On time', tone: 'success' })
+            : null;
+          const tiles = [
+            ['Phase', <Badge key="b" tone={phaseTone[viewRow.phase] || 'neutral'}>{`Phase ${viewRow.phase}`}</Badge>, <ListChecks key="i" size={16} />, 'indigo'],
+            ['Days Required', viewRow.days ?? '—', <Hourglass key="i" size={16} />, 'lavender'],
+            ['Onsite / Offsite', viewRow.mode || '—', <Clock key="i" size={16} />, 'sky'],
+          ];
+          return (
+          <div className="flex-col gap-4">
+            {/* Summary tiles */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }} className="stagger">
+              {tiles.map(([label, val, icon, tint]) => (
+                <div key={label} className="card card-pad text-center anim-fade-up" style={{ background: `var(--tint-${tint})`, border: 'none' }}>
+                  <span className="metric-icon" style={{ width: 32, height: 32, borderRadius: 9, margin: '0 auto 6px', background: 'rgba(255,255,255,.55)', color: `var(--tint-${tint}-ink)` }}>{icon}</span>
+                  <div className="fw-8" style={{ color: `var(--tint-${tint}-ink)`, fontSize: 17 }}>{val}</div>
+                  <div className="t-xs fw-6" style={{ color: `var(--tint-${tint}-ink)`, opacity: .8 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Core details */}
+            <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+              <div className="detail-list">
+                <DetailRow label="Activity">{viewRow.activity}</DetailRow>
+                <DetailRow label="Project / Client">{viewRow.projectName ? <>{viewRow.projectName} <span className="mono t-xs ink-3">({viewRow.projectCode})</span></> : <span className="ink-3">Not linked</span>}</DetailRow>
+                <DetailRow label="Module Group">{viewRow.group}</DetailRow>
+                <DetailRow label="Module Name">{viewRow.modules?.length ? <span className="flex flex-wrap gap-1">{viewRow.modules.map((m) => <Badge key={m} tone="info">{m}</Badge>)}</span> : <span className="ink-3">—</span>}</DetailRow>
+                <DetailRow label="Hospital Name">{viewRow.clinic}</DetailRow>
+                <DetailRow label="Status"><StatusBadge status={viewRow.status} /></DetailRow>
+              </div>
+            </div>
+
+            {/* Planned vs actual */}
+            <div className="card card-pad">
+              <div className="flex items-center justify-between mb-3">
+                <div className="card-title flex items-center gap-2"><CalendarRange size={15} /> Planned vs Actual</div>
+                {variance && <Badge tone={variance.tone}>{variance.label}</Badge>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+                  <div className="t-xs fw-7 ink-3 mb-2" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Planned</div>
+                  <div className="detail-list">
+                    <DetailRow label="Start">{fmtDate(viewRow.startDate)}</DetailRow>
+                    <DetailRow label="End">{fmtDate(viewRow.endDate)}</DetailRow>
+                  </div>
+                </div>
+                <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+                  <div className="t-xs fw-7 ink-3 mb-2" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Actual</div>
+                  <div className="detail-list">
+                    <DetailRow label="Start">{viewRow.actualStart ? fmtDate(viewRow.actualStart) : <span className="ink-3">—</span>}</DetailRow>
+                    <DetailRow label="End">{viewRow.actualEnd ? fmtDate(viewRow.actualEnd) : <span className="ink-3">—</span>}</DetailRow>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </Drawer>
 
       {/* Create / Update — form drawer (distinct key so edit values don't leak) */}
