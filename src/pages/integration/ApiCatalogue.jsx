@@ -4,8 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { Braces, Plus, Lock, Globe, FlaskConical } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Select, FormDrawer, useToast } from '../../components/ui';
 import { INTEGRATIONS, HTTP_METHODS, AUTH_TYPES } from '../../data/integration';
+import { getUserApis, addUserApi, subscribeUserApis } from '../../data/userApis';
 import { INT_STATUS_TONE, MethodBadge } from './_shared';
 
 export default function ApiCatalogue() {
@@ -13,12 +14,18 @@ export default function ApiCatalogue() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [method, setMethod] = useState('All');
+  const [integration, setIntegration] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra, setExtra] = useState(getUserApis);
+  useEffect(() => subscribeUserApis(setExtra), []);
 
   const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
   const methods = ['All', ...HTTP_METHODS];
-  const filtered = useMemo(() => allRows.filter((r) => method === 'All' || r.method === method), [allRows, method]);
+  const integrationOpts = useMemo(() => ['All', ...Array.from(new Set(allRows.map((r) => r.integrationName))).sort()], [allRows]);
+  const filtered = useMemo(
+    () => allRows.filter((r) => (method === 'All' || r.method === method) && (integration === 'All' || r.integrationName === integration)),
+    [allRows, method, integration],
+  );
 
   useEffect(() => {
     if (params.get('new') === '1') { setShow(true); params.delete('new'); setParams(params, { replace: true }); }
@@ -27,11 +34,12 @@ export default function ApiCatalogue() {
 
   const addApi = (v) => {
     const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
-    setExtra((prev) => [{
+    addUserApi({
       id: `API-${2000 + allRows.length}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       name: v.name, purpose: v.purpose || '', method: v.method, url: v.url, sandboxUrl: v.sandboxUrl || '', liveUrl: v.liveUrl || '',
       authType: v.authType, headers: v.headers || '', status: 'In Development',
-    }, ...prev]);
+      requestPayload: v.requestPayload || '', successResponse: v.successResponse || '', errorResponse: v.errorResponse || '',
+    });
     toast.success('API documented', `${v.method} ${v.name}`);
     setShow(false);
   };
@@ -59,7 +67,13 @@ export default function ApiCatalogue() {
       </div>
 
       <div className="card card-pad" style={{ paddingBottom: 12 }}>
-        <div className="flex items-center gap-2 flex-wrap"><span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Method</span>{methods.map((m) => <Chip key={m} active={method === m} onClick={() => setMethod(m)}>{m}</Chip>)}</div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap"><span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Method</span>{methods.map((m) => <Chip key={m} active={method === m} onClick={() => setMethod(m)}>{m}</Chip>)}</div>
+          <div className="flex items-center gap-2" style={{ minWidth: 220 }}>
+            <span className="t-sm fw-6 ink-2" style={{ whiteSpace: 'nowrap' }}>Integration</span>
+            <Select value={integration} onChange={(e) => setIntegration(e.target.value)} options={integrationOpts} />
+          </div>
+        </div>
       </div>
 
       <DataTable columns={columns} rows={filtered} loading={loading} exportName="api-catalogue.csv" searchPlaceholder="Search APIs, endpoints, integrations…" pageSize={15} />
@@ -76,6 +90,9 @@ export default function ApiCatalogue() {
           { name: 'liveUrl', label: 'Live Base URL', placeholder: 'https://api…' },
           { name: 'authType', label: 'Authentication', type: 'select', required: true, default: 'Bearer Token', options: AUTH_TYPES },
           { name: 'headers', label: 'Headers', full: true, placeholder: 'Authorization, Content-Type, Client-ID' },
+          { name: 'requestPayload', label: 'Request Payload', type: 'textarea', full: true, rows: 5, placeholder: '{\n  "BusinessShortCode": 174379,\n  "Amount": 1,\n  "PhoneNumber": 2547XXXXXXXX\n}' },
+          { name: 'successResponse', label: 'Success Response', type: 'textarea', full: true, rows: 5, placeholder: '{\n  "ResponseCode": "0",\n  "ResponseDescription": "Success. Request accepted for processing",\n  "CheckoutRequestID": "ws_CO_..."\n}' },
+          { name: 'errorResponse', label: 'Error Response', type: 'textarea', full: true, rows: 4, placeholder: '{\n  "errorCode": "400.002.02",\n  "errorMessage": "Bad Request - Invalid PhoneNumber"\n}' },
         ]} />
     </div>
   );

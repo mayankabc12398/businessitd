@@ -25,13 +25,14 @@ export default function ClientImplementations() {
     setExtra((prev) => [{
       id: `CI-${String(allRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       client: v.client, status: v.status || 'UAT', liveDate: v.liveDate || null, version: v.version || 'V1.0',
+      reusable: v.status === 'Live' ? !!v.reusable : false,
     }, ...prev]);
     toast.success('Client implementation added', `${v.client}`);
     setShow(false);
   };
 
   const columns = [
-    { key: 'client', header: 'Client / Hospital', minWidth: 180, render: (r) => <div className="flex items-center gap-2"><Building2 size={15} className="ink-3" /><span className="fw-6 t-sm">{r.client}</span></div> },
+    { key: 'client', header: 'Client / Hospital', minWidth: 180, render: (r) => <div className="flex items-center gap-2"><Building2 size={15} className="ink-3" /><span className="fw-6 t-sm">{r.client}</span>{r.reusable && <Badge tone="primary">Reusable</Badge>}</div> },
     { key: 'integrationName', header: 'Integration', minWidth: 190 },
     { key: 'version', header: 'Version', render: (r) => <Badge tone="neutral">{r.version}</Badge> },
     { key: 'liveDate', header: 'Live Date', nowrap: true, accessor: (r) => r.liveDate || '', render: (r) => r.liveDate ? fmtDate(r.liveDate) : <span className="ink-3">Pending</span> },
@@ -65,6 +66,7 @@ export default function ClientImplementations() {
           { name: 'status', label: 'Status', type: 'select', default: 'UAT', options: ['Live', 'UAT', 'Pending'] },
           { name: 'version', label: 'Version', placeholder: 'V1.0' },
           { name: 'liveDate', label: 'Live Date', type: 'date' },
+          { name: 'reusable', label: 'Reusable for other hospitals', type: 'checkbox', full: true, show: (v) => v.status === 'Live', help: 'Mark this live integration as a reusable template other hospitals can adopt' },
         ]} />
     </div>
   );

@@ -1,7 +1,7 @@
 // Form controls: Field wrapper, inputs, floating labels, searchable
 // select, tag input, switch field. All controlled components.
 import { useState, useRef, useMemo } from 'react';
-import { Search, ChevronDown, X, AlertCircle } from 'lucide-react';
+import { Search, ChevronDown, X, AlertCircle, Upload } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useApi';
 
 export function Field({ label, required, help, error, children }) {
@@ -23,6 +23,23 @@ export function Field({ label, required, help, error, children }) {
 
 export function Input({ invalid, ...props }) {
   return <input className={`input ${invalid ? 'invalid' : ''}`} {...props} />;
+}
+
+// File picker styled as a drop-zone button (stores just the file name).
+export function FileDrop({ value, onChange, placeholder = 'Choose file…', accept, icon }) {
+  const ref = useRef(null);
+  return (
+    <>
+      <button type="button" className={`file-drop ${value ? 'has-file' : ''}`} onClick={() => ref.current?.click()}>
+        <span className="file-ic">{icon || <Upload size={15} />}</span>
+        <span className={`truncate ${value ? 'ink-1 fw-6' : 'ink-3'}`} style={{ flex: 1, minWidth: 0, textAlign: 'left' }} title={value || undefined}>{value || placeholder}</span>
+        {value
+          ? <X size={15} className="file-x" onClick={(e) => { e.stopPropagation(); onChange(''); }} />
+          : <span className="t-xs ink-3" style={{ flexShrink: 0 }}>Browse</span>}
+      </button>
+      <input ref={ref} type="file" hidden accept={accept} onChange={(e) => onChange(e.target.files?.[0]?.name || '')} />
+    </>
+  );
 }
 
 export function Textarea({ invalid, ...props }) {

@@ -3,7 +3,7 @@ export { ToastProvider, useToast } from './Toast';
 export { Avatar, StatusBadge, Badge, Chip, EmptyState, Skeleton, SkeletonRows, ProgressBar, DetailRow, Accordion, Dropdown, Timeline, Stepper } from './primitives';
 export { Drawer, Modal, ConfirmDialog } from './overlays';
 export { Tabs, Segmented } from './Tabs';
-export { Field, Input, Textarea, Select, FloatInput, SearchSelect, MultiSelect, TagInput, SwitchField, SearchBox } from './forms';
+export { Field, Input, Textarea, Select, FloatInput, SearchSelect, MultiSelect, TagInput, SwitchField, SearchBox, FileDrop } from './forms';
 export { MetricCard } from './MetricCard';
 export { FormDrawer } from './FormDrawer';
 export { PageHeader } from './PageHeader';

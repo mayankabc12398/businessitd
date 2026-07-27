@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Drawer } from './overlays';
-import { Field, Input, Textarea, Select, SearchSelect, MultiSelect, TagInput, SwitchField } from './forms';
+import { Field, Input, Textarea, Select, SearchSelect, MultiSelect, TagInput, SwitchField, FileDrop } from './forms';
 
 const emptyFor = (f) => (f.type === 'tags' || f.type === 'multiselect' ? [] : f.type === 'checkbox' ? false : '');
 
@@ -55,6 +55,8 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
                 <MultiSelect value={values[f.name]} onChange={(v) => set(f.name, v)} options={f.options} placeholder={f.placeholder || 'Select…'} />
               ) : f.type === 'tags' ? (
                 <TagInput value={values[f.name]} onChange={(v) => set(f.name, v)} suggestions={f.suggestions} placeholder={f.placeholder} />
+              ) : f.type === 'file' ? (
+                <FileDrop value={values[f.name]} onChange={(v) => set(f.name, v)} placeholder={f.placeholder} accept={f.accept} />
               ) : (
                 <Input type={f.type || 'text'} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
               )}

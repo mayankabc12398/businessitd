@@ -30,7 +30,7 @@ export default function HimsChanges() {
     setExtra((prev) => [{
       id: `HC-${String(himsRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       module: v.module, screen: v.screen, screenPath: v.screenPath || '', control: v.control || '', button: v.button || '',
-      storedProc: v.storedProc || '', apiCalled: v.apiCalled || '', tableChanged: v.tableChanged || '', logic: v.logic || '',
+      storedProc: v.storedProc || '', apiCalled: v.apiCalled || '', tableChanged: v.tableChanged || '', logic: v.logic || '', document: v.document || '',
     }, ...prev]);
     toast.success('HIMS change recorded', `${v.module} · ${v.screen}`);
     setShow(false);
@@ -99,6 +99,7 @@ export default function HimsChanges() {
           { name: 'apiCalled', label: 'API Called', placeholder: 'STK Push' },
           { name: 'tableChanged', label: 'Tables Changed', full: true, placeholder: 'PaymentTransaction, MpesaLog' },
           { name: 'logic', label: 'Logic Description', type: 'textarea', full: true, rows: 3 },
+          { name: 'document', label: 'Upload Document', type: 'file', full: true, accept: '.pdf,.doc,.docx,.png,.jpg,.jpeg,.xlsx', placeholder: 'Attach change spec / screenshot…' },
         ]} />
     </div>
   );

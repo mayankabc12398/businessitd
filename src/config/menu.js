@@ -74,7 +74,6 @@ const INTEGRATION_MENU = [
       { path: '/integration/apis', label: 'API Catalogue', icon: Braces, tint: 'mint', desc: 'Every documented API endpoint' },
       { path: '/integration/payloads', label: 'Payloads & Responses', icon: FileCode2, tint: 'lavender', desc: 'Request, response & error samples' },
       { path: '/integration/hims-changes', label: 'HIMS & DB Changes', icon: Database, tint: 'peach', desc: 'Screen, logic & database changes' },
-      { path: '/integration/source-code', label: 'Source Code', icon: Code2, tint: 'sky', desc: 'Code & screen repository' },
     ],
   },
   {

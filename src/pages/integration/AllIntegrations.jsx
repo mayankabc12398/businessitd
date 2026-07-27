@@ -256,6 +256,8 @@ export default function AllIntegrations() {
           { name: 'phone', label: 'Phone' },
           { name: 'website', label: 'Website', full: true, placeholder: 'https://' },
           { name: 'docLink', label: 'Documentation Link', full: true, placeholder: 'https://' },
+          { name: 'receiptDoc', label: 'Upload Receipt Document', type: 'file', accept: '.pdf,.png,.jpg,.jpeg', placeholder: 'Attach receipt (PDF / image)…' },
+          { name: 'workflowDoc', label: 'Upload Workflow Document', type: 'file', accept: '.pdf,.doc,.docx,.vsdx,.png', placeholder: 'Attach workflow doc…' },
           { name: 'description', label: 'Description', type: 'textarea', full: true, rows: 3 },
         ]} />
 
