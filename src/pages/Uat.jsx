@@ -37,6 +37,7 @@ export default function Uat() {
       id: `UAT-${String(allCases.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
       module: v.module, total, passed: 0, failed: 0, pending: total, status: 'Not Started',
       tester: 'Client + QA', uatDate: v.uatDate || '2026-07-24', signoff: 'Pending',
+      bugCategory: v.bugCategory || '—', bugSummary: v.bugSummary || '',
     }, ...prev]);
     toast.success('UAT round created', `${v.module}`);
     setShow(false);
@@ -57,6 +58,7 @@ export default function Uat() {
     { key: 'passed', header: 'Passed', align: 'right', accessor: (r) => r.passed, render: (r) => <Badge tone="success">{r.passed}</Badge> },
     { key: 'failed', header: 'Failed', align: 'right', accessor: (r) => r.failed, render: (r) => r.failed ? <Badge tone="danger">{r.failed}</Badge> : <span className="ink-3">0</span> },
     { key: 'cov', header: 'Coverage', minWidth: 140, accessor: (r) => Math.round(r.passed / r.total * 100), render: (r) => { const pct = Math.round(r.passed / r.total * 100); return <div style={{ minWidth: 120 }}><div className="flex justify-between t-xs mb-1"><span className="ink-3">{r.pending} pending</span><b>{pct}%</b></div><ProgressBar value={pct} color={pct === 100 ? 'var(--success)' : r.failed > 2 ? 'var(--danger)' : 'var(--primary)'} /></div>; } },
+    { key: 'bugCategory', header: 'Bug Category', render: (r) => r.bugCategory && r.bugCategory !== '—' ? <Badge tone="info"><Tag size={10} /> {r.bugCategory}</Badge> : <span className="ink-3">—</span> },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     { key: 'signoff', header: 'Sign-off', render: (r) => r.signoff === 'Signed' ? <Badge tone="success"><CheckCircle2 size={11} /> Signed</Badge> : <Badge tone="pending">Pending</Badge> },
   ];
@@ -101,7 +103,9 @@ export default function Uat() {
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
             { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
             { name: 'total', label: 'Test Cases', type: 'number', required: true, placeholder: '0' },
+            { name: 'bugCategory', label: 'Bug Category', type: 'select', options: BUG_CATEGORIES },
             { name: 'uatDate', label: 'UAT Date', type: 'date' },
+            { name: 'bugSummary', label: 'Bug Summary', type: 'textarea', full: true, rows: 3, placeholder: 'Summary of bugs / observations found in this round…' },
           ]} />
       ) : (
         <FormDrawer key="bug-form" open={show} onClose={() => setShow(false)} title="Log Bug" subtitle="Report a defect found during testing"
@@ -136,10 +140,17 @@ export default function Uat() {
               <div className="flex justify-between t-xs mb-1"><span className="ink-3">Coverage</span><b>{Math.round(activeUat.passed / activeUat.total * 100)}%</b></div>
               <ProgressBar value={Math.round(activeUat.passed / activeUat.total * 100)} color={activeUat.passed === activeUat.total ? 'var(--success)' : 'var(--primary)'} />
             </div>
+            {activeUat.bugSummary && (
+              <div className="card card-pad">
+                <div className="flex items-center gap-2 card-title mb-2"><AlignLeft size={15} /> Bug Summary</div>
+                <div className="t-sm ink-2" style={{ lineHeight: 1.6 }}>{activeUat.bugSummary}</div>
+              </div>
+            )}
             <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
               <div className="detail-list">
                 <DetailRow label="Project">{activeUat.projectName} <span className="mono t-xs ink-3">({activeUat.projectCode})</span></DetailRow>
                 <DetailRow label="Module"><Badge tone="info">{activeUat.module}</Badge></DetailRow>
+                <DetailRow label="Bug Category">{activeUat.bugCategory && activeUat.bugCategory !== '—' ? <Badge tone="info"><Tag size={11} /> {activeUat.bugCategory}</Badge> : '—'}</DetailRow>
                 <DetailRow label="Tester">{activeUat.tester}</DetailRow>
                 <DetailRow label="UAT Date">{fmtDate(activeUat.uatDate)}</DetailRow>
                 <DetailRow label="Status"><StatusBadge status={activeUat.status} /></DetailRow>
