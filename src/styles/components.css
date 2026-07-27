@@ -91,6 +91,10 @@
 @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
 
+/* Filter bar — auto-fit dropdowns / inputs / date pickers */
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 14px; align-items: end; }
+.filter-grid .field { margin: 0; }
+
 /* ================= Badges & chips ================= */
 .badge {
   display: inline-flex; align-items: center; gap: 5px;

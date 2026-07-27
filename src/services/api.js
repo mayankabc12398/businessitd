@@ -9,6 +9,8 @@ import { SRS_SCHEDULE, REQUIREMENTS, SRS_KPIS } from '../data/srs';
 import { MASTER_DATA, MASTERDATA_KPIS } from '../data/masterdata';
 import { DEV_ITEMS, UAT_CASES, BUGS, TRAINING, GOLIVE_READINESS, LIVE_IMPORTS, PARALLEL_GOLIVE, FINAL_GOLIVE, DELIVERY_KPIS, GOLIVE_KPIS } from '../data/delivery';
 import { ISSUES, RISKS, SIGNOFFS, DOCUMENTS, GOVERNANCE_KPIS } from '../data/governance';
+import { ACTIVITY_SCHEDULE, SCHEDULE_KPIS } from '../data/schedule';
+import { HOSPITAL_USERS, USERS_KPIS } from '../data/users';
 import { NOTIFICATIONS, ACTIVITY_FEED, UPCOMING, PROJECT_TREND, REVENUE_TREND, PHASE_DISTRIBUTION, HEALTH_MIX, CATEGORY_MIX, WORKLOAD, STAGE_FUNNEL } from '../data/misc';
 import { INTEGRATIONS, PROCESS_FLOWS, APIS, PAYLOADS, HIMS_CHANGES, DB_CHANGES, SOURCE_CODE, SCREENS, CLIENT_IMPLEMENTATIONS, TEST_CASES, INT_DOCUMENTS, VERSION_HISTORY, DEVELOPER_NOTES, VENDORS, TYPE_MIX, SIR_KPIS } from '../data/integration';
 import { FEATURES, BUSINESS_ANALYSIS, TECHNICAL_ANALYSIS, FEATURE_WORKFLOWS, DEV_DETAILS, IMPACT, SCREEN_CHANGES, FEATURE_TESTS, CLIENT_ADOPTION, KB_DOCS, APPROVALS, FEATURE_LIBRARY, TOP_BY_IMPACT, STATUS_MIX, CATEGORY_MIX as FEATURE_CATEGORY_MIX, FEATURE_TREND, SFR_KPIS } from '../data/revenue';
@@ -53,6 +55,14 @@ export const api = {
   getFinalGoLive: () => respond(FINAL_GOLIVE),
   getDeliveryKpis: () => respond(DELIVERY_KPIS, 120),
   getGoLiveKpis: () => respond(GOLIVE_KPIS, 120),
+
+  // activity schedule
+  getActivitySchedule: () => respond(ACTIVITY_SCHEDULE),
+  getScheduleKpis: () => respond(SCHEDULE_KPIS, 120),
+
+  // hospital users & access
+  getHospitalUsers: () => respond(HOSPITAL_USERS),
+  getUsersKpis: () => respond(USERS_KPIS, 120),
 
   // governance
   getIssues: () => respond(ISSUES),

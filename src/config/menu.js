@@ -3,7 +3,7 @@
 // from the current route prefix so deep links keep the right menu.
 import {
   LayoutDashboard, FolderKanban, Building2, Handshake, FileSignature,
-  GitPullRequestArrow, Database, Code2, FlaskConical,
+  GitPullRequestArrow, Database, Code2, FlaskConical, CalendarRange, Contact,
   GraduationCap, Rocket, ShieldAlert, TriangleAlert, BadgeCheck,
   FolderOpen, BarChart3, Settings2, Users,
   Boxes, Workflow, Braces, FileCode2, Hospital, History, Recycle, Share2,
@@ -16,6 +16,8 @@ const PMO_MENU = [
     group: 'Overview',
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', end: true, desc: 'Portfolio-wide implementation overview' },
+      { path: '/schedule', label: 'Activity Schedule', icon: CalendarRange, tint: 'blue', desc: 'Phase-wise implementation plan — planned vs actual dates' },
+      { path: '/users', label: 'Users & Access', icon: Contact, tint: 'cyan', desc: 'Department-wise HIMS user roster & access type' },
     ],
   },
   {
