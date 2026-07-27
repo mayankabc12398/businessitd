@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { GraduationCap, Plus, CheckCircle2, Users, Star, CalendarClock, Clock, Mail } from 'lucide-react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, Drawer, Field, Input, Select, SearchSelect, SwitchField, useToast } from '../components/ui';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, Field, Input, Select, SearchSelect, SwitchField, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { PROJECTS } from '../data/projects';
 import { HOSPITAL_DEPTS, TRAINING_TYPES } from '../data/masters';
@@ -25,11 +25,24 @@ export default function Training() {
   const [proj, setProj] = useState('All');
   const [show, setShow] = useState(false);
   const [extra, setExtra] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [activeId, setActiveId] = useState(null);
 
   const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
   const projOptions = useMemo(() => ['All', ...new Set(allRows.map((r) => r.projectName))], [allRows]);
   const filtered = useMemo(() => allRows.filter((r) => proj === 'All' || r.projectName === proj), [allRows, proj]);
   const avgFeedback = useMemo(() => { const f = allRows.filter((r) => r.feedback); return f.length ? (f.reduce((s, r) => s + r.feedback, 0) / f.length).toFixed(1) : '—'; }, [allRows]);
+  const activeRow = useMemo(() => allRows.find((r) => r.id === activeId) || null, [allRows, activeId]);
+
+  // Email a summary for all selected sessions (bulk)
+  const sendBulk = () => {
+    toast.success('Emails sent', `Training summary emailed for ${selected.length} session${selected.length > 1 ? 's' : ''}`);
+    setSelected([]);
+  };
+  // Email a schedule/invite mail for a single scheduled session
+  const sendSchedule = () => {
+    toast.success('Schedule mail sent', `${activeRow.dept} training invite emailed to ${activeRow.trainer} · ${fmtDate(activeRow.date)}`);
+  };
 
   const addTraining = (v) => {
     const p = PROJECTS.find((x) => x.code === v.projectCode);
@@ -55,6 +68,11 @@ export default function Training() {
     { key: 'feedback', header: 'Rating', align: 'center', accessor: (r) => r.feedback || 0, render: (r) => r.feedback ? <Badge tone="warning"><Star size={11} /> {r.feedback}</Badge> : <span className="ink-3">—</span> },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     { key: 'signoff', header: 'Sign-off', render: (r) => r.signoff === 'Signed' ? <Badge tone="success"><CheckCircle2 size={11} /> Signed</Badge> : r.signoff === 'Pending' ? <Badge tone="pending">Pending</Badge> : <span className="ink-3">—</span> },
+    { key: 'email', header: '', width: 46, align: 'center', sortable: false, render: (r) => (
+      <button className="btn btn-icon btn-ghost btn-sm" title="Send email" onClick={(e) => { e.stopPropagation(); toast.success('Email sent', `${r.status === 'Scheduled' ? 'Invite' : 'Summary'} emailed · ${r.dept} (${r.projectName})`); }}>
+        <Mail size={15} />
+      </button>
+    ) },
   ];
 
   return (
@@ -74,7 +92,68 @@ export default function Training() {
         <div className="flex items-center gap-2 flex-wrap"><span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Project</span>{projOptions.map((p) => <Chip key={p} active={proj === p} onClick={() => setProj(p)}>{p}</Chip>)}</div>
       </div>
 
-      <DataTable columns={columns} rows={filtered} loading={loading} exportName="training.csv" searchPlaceholder="Search departments, trainers…" pageSize={15} />
+      <DataTable
+        columns={columns} rows={filtered} loading={loading}
+        selectable selected={selected} onSelect={setSelected}
+        onRowClick={(r) => setActiveId(r.id)}
+        exportName="training.csv" searchPlaceholder="Search departments, trainers…" pageSize={15}
+        toolbarLeft={selected.length > 0 && (
+          <div className="flex items-center gap-2" style={{ background: 'var(--primary-soft)', borderRadius: 10, padding: '4px 6px 4px 12px' }}>
+            <span className="t-sm fw-6" style={{ color: 'var(--primary-700)' }}>{selected.length} selected</span>
+            <button className="btn btn-primary btn-sm" onClick={sendBulk}><Mail size={14} /> Send Email</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSelected([])}>Clear</button>
+          </div>
+        )}
+      />
+
+      {/* Row slider — single training detail & send email */}
+      <Drawer open={!!activeRow} onClose={() => setActiveId(null)} size="md"
+        title={activeRow ? `${activeRow.dept} — Training` : ''} subtitle={activeRow ? `${activeRow.id} · ${activeRow.projectName}` : ''}
+        headerExtra={activeRow && <StatusBadge status={activeRow.status} />}
+        footer={<>
+          <button className="btn btn-ghost" onClick={() => setActiveId(null)}>Close</button>
+          {activeRow?.status === 'Scheduled' && (
+            <button className="btn btn-ghost" onClick={sendSchedule}><CalendarClock size={14} /> Send Schedule Mail</button>
+          )}
+          <button className="btn btn-primary" onClick={() => { toast.success('Email sent', `Training summary emailed to ${activeRow.trainer} & department`); setActiveId(null); }}>
+            <Mail size={14} /> Send Email
+          </button>
+        </>}>
+        {activeRow && (
+          <div className="flex-col gap-4">
+            <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+              <div className="detail-list">
+                <DetailRow label="Project">{activeRow.projectName} <span className="mono t-xs ink-3">({activeRow.projectCode})</span></DetailRow>
+                <DetailRow label="Department"><Badge tone="info">{activeRow.dept}</Badge></DetailRow>
+                <DetailRow label="Type">{activeRow.type}</DetailRow>
+                <DetailRow label="Trainer">{activeRow.trainer}</DetailRow>
+                <DetailRow label="Co-ordinator">{activeRow.coordinator && activeRow.coordinator !== '—' ? activeRow.coordinator : '—'}</DetailRow>
+                <DetailRow label="Date">{fmtDate(activeRow.date)}</DetailRow>
+                <DetailRow label="Time">{activeRow.fromTime && activeRow.toTime ? `${activeRow.fromTime}–${activeRow.toTime} · ${activeRow.durationHrs}h` : '—'}</DetailRow>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {[
+                ['Planned', activeRow.plannedAttendees ?? 0, <Users key="i" size={16} />, 'blue'],
+                ['Attendance', activeRow.attendance ?? 0, <CheckCircle2 key="i" size={16} />, 'green'],
+                ['Feedback', activeRow.feedback ?? '—', <Star key="i" size={16} />, 'lemon'],
+              ].map(([label, val, icon, tint]) => (
+                <div key={label} className="card card-pad text-center">
+                  <span className="metric-icon" style={{ width: 34, height: 34, borderRadius: 9, margin: '0 auto 6px', background: `var(--tint-${tint})`, color: `var(--tint-${tint}-ink)` }}>{icon}</span>
+                  <div className="t-2xl fw-8">{val}</div>
+                  <div className="t-xs ink-3">{label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="card card-pad">
+              <div className="detail-list">
+                <DetailRow label="Status"><StatusBadge status={activeRow.status} /></DetailRow>
+                <DetailRow label="Sign-off">{activeRow.signoff === 'Signed' ? <Badge tone="success">Signed</Badge> : activeRow.signoff === 'Pending' ? <Badge tone="pending">Pending</Badge> : '—'}</DetailRow>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
 
       <ScheduleTraining open={show} onClose={() => setShow(false)} onSchedule={addTraining} />
     </div>
