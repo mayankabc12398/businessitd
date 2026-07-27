@@ -18,7 +18,7 @@ const PMO_MENU = [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', end: true, desc: 'Portfolio-wide implementation overview' },
       { path: '/onboarding', label: 'Onboarding', icon: Route, tint: 'lavender', desc: 'Guided 3-step implementation onboarding wizard' },
       { path: '/schedule', label: 'Activity Schedule', icon: CalendarRange, tint: 'blue', desc: 'Phase-wise implementation plan — planned vs actual dates' },
-      { path: '/users', label: 'Users & Access', icon: Contact, tint: 'cyan', desc: 'Department-wise HIMS user roster & access type' },
+      { path: '/users', label: 'Department Contacts', icon: Contact, tint: 'cyan', desc: 'Department-wise HIMS user roster & access type' },
     ],
   },
   {

@@ -123,9 +123,9 @@ export default function HospitalUsers() {
 
   return (
     <div className="page">
-      <PageHeader icon={<Contact size={22} />} tint="cyan" title="Users & Access"
+      <PageHeader icon={<Contact size={22} />} tint="cyan" title="Department Contacts"
         desc="Department-wise HIMS user roster — designation, access type & modules"
-        crumbs={[{ label: 'Overview' }, { label: 'Users & Access' }]}
+        crumbs={[{ label: 'Overview' }, { label: 'Department Contacts' }]}
         actions={<button className="btn btn-primary" onClick={openAdd}><Plus size={15} /> Add User</button>} />
 
       <div className="kpi-grid stagger">
