@@ -1,16 +1,21 @@
-// Navigation config — groups, routes, lucide icons and per-module pastel tints.
+// Navigation config — three workspaces, each with its own sidebar menu.
+// A workspace is chosen from the header switcher; the active one is derived
+// from the current route prefix so deep links keep the right menu.
 import {
   LayoutDashboard, FolderKanban, Building2, Handshake, FileSignature,
   GitPullRequestArrow, Database, Code2, FlaskConical,
   GraduationCap, Rocket, ShieldAlert, TriangleAlert, BadgeCheck,
   FolderOpen, BarChart3, Settings2, Users,
+  Boxes, Workflow, Braces, FileCode2, Hospital, History, Recycle, Share2,
+  Lightbulb, Map, Tags, CircleDollarSign, TrendingUp,
 } from 'lucide-react';
 
-export const MENU = [
+// ── Workspace 1 · existing HIMS Implementation PMO ──────────────────────────
+const PMO_MENU = [
   {
     group: 'Overview',
     items: [
-      { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', desc: 'Portfolio-wide implementation overview' },
+      { path: '/', label: 'Dashboard', icon: LayoutDashboard, tint: 'indigo', end: true, desc: 'Portfolio-wide implementation overview' },
     ],
   },
   {
@@ -52,5 +57,108 @@ export const MENU = [
   },
 ];
 
-export const FLAT_MENU = MENU.flatMap((g) => g.items);
+// ── Workspace 2 · Smart Integration Records (SIR) ───────────────────────────
+const INTEGRATION_MENU = [
+  {
+    group: 'Overview',
+    items: [
+      { path: '/integration', label: 'Dashboard', icon: LayoutDashboard, tint: 'cyan', end: true, desc: 'Integration repository summary' },
+    ],
+  },
+  {
+    group: 'Integration Management',
+    items: [
+      { path: '/integration/all', label: 'All Integrations', icon: Boxes, tint: 'blue', desc: 'Master list, details & workflow' },
+      { path: '/integration/workflow', label: 'Integration Workflow', icon: Workflow, tint: 'indigo', desc: '6-step integration lifecycle board' },
+      { path: '/integration/apis', label: 'API Catalogue', icon: Braces, tint: 'mint', desc: 'Every documented API endpoint' },
+      { path: '/integration/payloads', label: 'Payloads & Responses', icon: FileCode2, tint: 'lavender', desc: 'Request, response & error samples' },
+      { path: '/integration/hims-changes', label: 'HIMS & DB Changes', icon: Database, tint: 'peach', desc: 'Screen, logic & database changes' },
+      { path: '/integration/source-code', label: 'Source Code', icon: Code2, tint: 'sky', desc: 'Code & screen repository' },
+    ],
+  },
+  {
+    group: 'Delivery & Tracking',
+    items: [
+      { path: '/integration/clients', label: 'Client Implementations', icon: Hospital, tint: 'cyan', desc: 'Which hospital runs which integration' },
+      { path: '/integration/testing', label: 'Testing & UAT', icon: FlaskConical, tint: 'rose', badge: 'inbox', desc: 'Test cases, results & bugs' },
+      { path: '/integration/versions', label: 'Version History', icon: History, tint: 'orange', desc: 'Every change, every version' },
+    ],
+  },
+  {
+    group: 'Knowledge Base',
+    items: [
+      { path: '/integration/documents', label: 'Documents', icon: FolderOpen, tint: 'blue', desc: 'API PDFs, Swagger, BRD, Postman' },
+      { path: '/integration/reuse', label: 'Reusable Repository', icon: Recycle, tint: 'green', desc: 'Find & reuse existing integrations' },
+      { path: '/integration/vendors', label: 'Vendors & Partners', icon: Handshake, tint: 'lemon', desc: 'Integration vendors & contacts' },
+      { path: '/integration/reports', label: 'Reports', icon: BarChart3, tint: 'indigo', desc: 'Repository analytics & exports' },
+    ],
+  },
+];
+
+// ── Workspace 3 · New Feature Management & Revenue Generation ────────────────
+const REVENUE_MENU = [
+  {
+    group: 'Overview',
+    items: [
+      { path: '/revenue', label: 'Growth Dashboard', icon: LayoutDashboard, tint: 'green', end: true, desc: 'Revenue, MRR/ARR & feature pipeline' },
+    ],
+  },
+  {
+    group: 'Product',
+    items: [
+      { path: '/revenue/features', label: 'Feature Backlog', icon: Lightbulb, tint: 'lavender', desc: 'Ideas → shipped with revenue impact' },
+      { path: '/revenue/roadmap', label: 'Roadmap', icon: Map, tint: 'blue', desc: 'Delivery pipeline by stage & quarter' },
+    ],
+  },
+  {
+    group: 'Monetization',
+    items: [
+      { path: '/revenue/plans', label: 'Plans & Pricing', icon: Tags, tint: 'mint', desc: 'Subscription tiers & add-on modules' },
+      { path: '/revenue/streams', label: 'Revenue Streams', icon: CircleDollarSign, tint: 'green', desc: 'Recurring & one-time revenue sources' },
+    ],
+  },
+];
+
+export const WORKSPACES = [
+  {
+    id: 'pmo',
+    name: 'HIMS Implementation',
+    tag: 'Implementation PMO',
+    icon: FolderKanban,
+    tint: 'indigo',
+    home: '/',
+    prefixes: [],
+    menu: PMO_MENU,
+  },
+  {
+    id: 'integration',
+    name: 'Smart Integration Records',
+    tag: 'Integration Repository',
+    icon: Share2,
+    tint: 'cyan',
+    home: '/integration',
+    prefixes: ['/integration'],
+    menu: INTEGRATION_MENU,
+  },
+  {
+    id: 'revenue',
+    name: 'Feature & Revenue',
+    tag: 'Product & Growth',
+    icon: TrendingUp,
+    tint: 'green',
+    home: '/revenue',
+    prefixes: ['/revenue'],
+    menu: REVENUE_MENU,
+  },
+];
+
+// Which workspace owns a given route (default = PMO / existing).
+export const activeWorkspace = (pathname = '/') =>
+  WORKSPACES.find((w) => w.prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) || WORKSPACES[0];
+
+// Backward-compatible exports (PMO is the primary/legacy workspace).
+export const MENU = PMO_MENU;
+
+// Flat list across ALL workspaces — powers the global search.
+export const FLAT_MENU = WORKSPACES.flatMap((w) => w.menu.flatMap((g) => g.items));
 export const findMenu = (path) => FLAT_MENU.find((m) => m.path === path);

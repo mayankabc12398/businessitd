@@ -5,9 +5,9 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Search, Bell, PanelLeftClose, PanelLeftOpen, Menu as MenuIcon, Plus,
   LogOut, User, Settings, HelpCircle, ChevronDown, Sparkles, CheckCheck,
-  AlertTriangle, Info, ClipboardList, X, Activity, Sun, Moon,
+  AlertTriangle, Info, ClipboardList, X, Activity, Sun, Moon, Check, LayoutGrid,
 } from 'lucide-react';
-import { MENU, FLAT_MENU } from '../config/menu';
+import { WORKSPACES, activeWorkspace, FLAT_MENU } from '../config/menu';
 import { PROJECTS } from '../data/projects';
 import { CLIENTS } from '../data/clients';
 import { CURRENT_USER } from '../data/team';
@@ -209,6 +209,60 @@ function QuickActions() {
   );
 }
 
+// Workspace switcher — swaps the entire sidebar menu + page set. Lives in the
+// header between search and quick actions. Active workspace is derived from the
+// current route so deep links / refreshes stay in the right workspace.
+function WorkspaceSwitcher() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const ws = activeWorkspace(location.pathname);
+  useClickOutside(ref, () => setOpen(false));
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }} className="ws-switcher">
+      <button className="ws-trigger" onClick={() => setOpen((o) => !o)} title="Switch workspace">
+        <span className="metric-icon" style={{ width: 28, height: 28, borderRadius: 8, background: `var(--tint-${ws.tint})`, color: `var(--tint-${ws.tint}-ink)`, flexShrink: 0 }}>
+          <ws.icon size={16} />
+        </span>
+        <span className="hide-mobile" style={{ textAlign: 'left', minWidth: 0 }}>
+          <span className="t-sm fw-7 ink-1" style={{ display: 'block', lineHeight: 1.15 }}>{ws.name}</span>
+          <span className="t-xs ink-3">{ws.tag}</span>
+        </span>
+        <ChevronDown size={14} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div className="header-pop" style={{ width: 300, left: 0 }}>
+          <div className="menu-label" style={{ padding: '10px 14px 4px', display: 'flex', alignItems: 'center', gap: 6 }}><LayoutGrid size={12} /> Workspaces</div>
+          <div style={{ padding: 6 }}>
+            {WORKSPACES.map((w) => {
+              const active = w.id === ws.id;
+              return (
+                <button key={w.id} className={`menu-item ${active ? 'active' : ''}`} onClick={() => { navigate(w.home); setOpen(false); }}>
+                  <span className="metric-icon" style={{ width: 32, height: 32, borderRadius: 9, background: `var(--tint-${w.tint})`, color: `var(--tint-${w.tint}-ink)`, flexShrink: 0 }}>
+                    <w.icon size={16} />
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="fw-6 t-sm" style={{ display: 'block' }}>{w.name}</span>
+                    <span className="t-xs ink-3">{w.tag}</span>
+                  </span>
+                  {active && <Check size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <style>{`
+        .ws-trigger { display:flex; align-items:center; gap:9px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:5px 10px 5px 6px; cursor:pointer; max-width:260px; transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+        .ws-trigger:hover { border-color:var(--primary-soft); background:var(--surface-3); }
+        @media (max-width: 720px){ .ws-trigger { padding:5px; } }
+      `}</style>
+    </div>
+  );
+}
+
 function ProfilePop() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -251,6 +305,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const contentRef = useRef(null);
+  const ws = activeWorkspace(location.pathname);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -266,7 +321,7 @@ export default function AppLayout() {
           {!collapsed && (
             <span>
               <span className="brand-name" style={{ display: 'block' }}>Smart HIMS</span>
-              <span className="brand-tag">PMO · Implementation Suite</span>
+              <span className="brand-tag">{ws.tag}</span>
             </span>
           )}
           <button className="icon-btn hide-mobile" style={{ marginLeft: 'auto', display: mobileOpen ? 'inline-flex' : undefined }} onClick={() => setMobileOpen(false)}>
@@ -274,11 +329,11 @@ export default function AppLayout() {
           </button>
         </div>
         <nav className="sidebar-nav">
-          {MENU.map((g) => (
+          {ws.menu.map((g) => (
             <div key={g.group}>
               <div className="nav-group-label">{g.group}</div>
               {g.items.map((m) => (
-                <NavLink key={m.path} to={m.path} end={m.path === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={collapsed ? m.label : undefined}>
+                <NavLink key={m.path} to={m.path} end={m.end || m.path === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={collapsed ? m.label : undefined}>
                   <span className="nav-ico"><m.icon size={17} /></span>
                   <span className="nav-text">{m.label}</span>
                   {m.badge === 'inbox' && <span className="nav-badge">14</span>}
@@ -309,6 +364,7 @@ export default function AppLayout() {
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
           <GlobalSearch />
+          <WorkspaceSwitcher />
           <div style={{ flex: 1 }} />
           <QuickActions />
           <ThemeToggle />
