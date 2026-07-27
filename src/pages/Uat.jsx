@@ -33,13 +33,15 @@ export default function Uat() {
   const projName = (code) => { const p = PROJECTS.find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
   const addUat = (v) => {
     const total = Number(v.total) || 0;
-    setExtraCases((prev) => [{
-      id: `UAT-${String(allCases.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
-      module: v.module, total, passed: 0, failed: 0, pending: total, status: 'Not Started',
-      tester: 'Client + QA', uatDate: v.uatDate || '2026-07-24', signoff: 'Pending',
+    const modules = Array.isArray(v.module) ? v.module : v.module ? [v.module] : [];
+    const rounds = modules.map((module, i) => ({
+      id: `UAT-${String(allCases.length + 1 + i).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
+      module, total, passed: 0, failed: 0, pending: total, status: 'Not Started',
+      tester: 'Client + QA', uatDate: v.uatDate || '2026-07-24', fromDate: v.fromDate || null, toDate: v.toDate || null, signoff: 'Pending',
       bugCategory: v.bugCategory || '—', bugSummary: v.bugSummary || '',
-    }, ...prev]);
-    toast.success('UAT round created', `${v.module}`);
+    }));
+    setExtraCases((prev) => [...rounds, ...prev]);
+    toast.success('UAT round created', `${modules.length} module${modules.length > 1 ? 's' : ''}`);
     setShow(false);
   };
   const addBug = (v) => {
@@ -101,10 +103,12 @@ export default function Uat() {
           submitLabel="Create Round" onSubmit={addUat}
           fields={[
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
-            { name: 'module', label: 'Module', type: 'select', required: true, options: HIMS_MODULES.map((m) => m.name) },
+            { name: 'module', label: 'Module', type: 'multiselect', required: true, options: HIMS_MODULES.map((m) => m.name), placeholder: 'Select one or more…' },
             { name: 'total', label: 'Test Cases', type: 'number', required: true, placeholder: '0' },
             { name: 'bugCategory', label: 'Bug Category', type: 'select', options: BUG_CATEGORIES },
             { name: 'uatDate', label: 'UAT Date', type: 'date' },
+            { name: 'fromDate', label: 'From Date', type: 'date' },
+            { name: 'toDate', label: 'To Date', type: 'date' },
             { name: 'bugSummary', label: 'Bug Summary', type: 'textarea', full: true, rows: 3, placeholder: 'Summary of bugs / observations found in this round…' },
           ]} />
       ) : (
@@ -153,6 +157,7 @@ export default function Uat() {
                 <DetailRow label="Bug Category">{activeUat.bugCategory && activeUat.bugCategory !== '—' ? <Badge tone="info"><Tag size={11} /> {activeUat.bugCategory}</Badge> : '—'}</DetailRow>
                 <DetailRow label="Tester">{activeUat.tester}</DetailRow>
                 <DetailRow label="UAT Date">{fmtDate(activeUat.uatDate)}</DetailRow>
+                {(activeUat.fromDate || activeUat.toDate) && <DetailRow label="Test Window">{activeUat.fromDate ? fmtDate(activeUat.fromDate) : '—'} → {activeUat.toDate ? fmtDate(activeUat.toDate) : '—'}</DetailRow>}
                 <DetailRow label="Status"><StatusBadge status={activeUat.status} /></DetailRow>
                 <DetailRow label="Sign-off">{activeUat.signoff === 'Signed' ? <Badge tone="success"><CheckCircle2 size={11} /> Signed</Badge> : <Badge tone="pending">Pending</Badge>}</DetailRow>
               </div>

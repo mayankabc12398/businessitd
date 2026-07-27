@@ -377,13 +377,13 @@ table.data-table tbody tr:last-child td { border-bottom: none; }
 }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
-  width: min(560px, 94vw); background: var(--surface);
+  width: min(616px, 94vw); background: var(--surface);
   box-shadow: var(--shadow-pop); display: flex; flex-direction: column;
   animation: slideInRight var(--dur-slow) var(--ease);
   border-left: 1px solid var(--border);
 }
-.drawer.drawer-lg { width: min(760px, 96vw); }
-.drawer.drawer-xl { width: min(960px, 97vw); }
+.drawer.drawer-lg { width: min(836px, 96vw); }
+.drawer.drawer-xl { width: min(1056px, 97vw); }
 .drawer-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 18px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
