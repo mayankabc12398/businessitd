@@ -43,8 +43,7 @@ const PMO_MENU = [
     items: [
       { path: '/issues', label: 'Issue Tracker', icon: ShieldAlert, tint: 'rose', badge: 'inbox', desc: 'Cross-project issues & resolution SLA' },
       { path: '/risks', label: 'Risk Register', icon: TriangleAlert, tint: 'orange', desc: 'Probability × impact heatmap & mitigation' },
-      { path: '/signoff', label: 'Sign-off Center', icon: BadgeCheck, tint: 'mint', desc: 'Milestone digital sign-offs' },
-      { path: '/documents', label: 'Documents', icon: FolderOpen, tint: 'blue', desc: 'PO, contracts, SRS, manuals & reports' },
+      { path: '/signoff', label: 'Sign-off & Documents', icon: BadgeCheck, tint: 'mint', desc: 'Milestone sign-offs + versioned document repository' },
     ],
   },
   {

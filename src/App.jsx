@@ -16,8 +16,7 @@ const Training = lazy(() => import('./pages/Training'));
 const GoLive = lazy(() => import('./pages/GoLive'));
 const Issues = lazy(() => import('./pages/Issues'));
 const Risks = lazy(() => import('./pages/Risks'));
-const Signoff = lazy(() => import('./pages/Signoff'));
-const Documents = lazy(() => import('./pages/Documents'));
+const SignoffDocs = lazy(() => import('./pages/SignoffDocs'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Team = lazy(() => import('./pages/Team'));
 const Masters = lazy(() => import('./pages/Masters'));
@@ -86,8 +85,8 @@ export default function App() {
             <Route path="go-live" element={page(<GoLive />)} />
             <Route path="issues" element={page(<Issues />)} />
             <Route path="risks" element={page(<Risks />)} />
-            <Route path="signoff" element={page(<Signoff />)} />
-            <Route path="documents" element={page(<Documents />)} />
+            <Route path="signoff" element={page(<SignoffDocs />)} />
+            <Route path="documents" element={page(<SignoffDocs />)} />
             <Route path="reports" element={page(<Reports />)} />
             <Route path="team" element={page(<Team />)} />
             <Route path="masters" element={page(<Masters />)} />
