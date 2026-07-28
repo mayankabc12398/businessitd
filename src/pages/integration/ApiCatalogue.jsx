@@ -1,13 +1,13 @@
 // Module 3 · API Repository — every documented API endpoint.
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Braces, Plus, Lock, Globe, FlaskConical } from 'lucide-react';
+import { Braces, Plus, Lock, Globe, FlaskConical, Eye } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
-import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Select, FormDrawer, useToast } from '../../components/ui';
-import { INTEGRATIONS, HTTP_METHODS, AUTH_TYPES } from '../../data/integration';
+import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Select, Drawer, DetailRow, FormDrawer, useToast } from '../../components/ui';
+import { INTEGRATIONS, HTTP_METHODS, AUTH_TYPES, PAYLOADS } from '../../data/integration';
 import { getUserApis, addUserApi, subscribeUserApis } from '../../data/userApis';
-import { INT_STATUS_TONE, MethodBadge } from './_shared';
+import { INT_STATUS_TONE, MethodBadge, CodeBlock } from './_shared';
 
 export default function ApiCatalogue() {
   const { data: rows, loading } = useApi(() => api.getApis());
@@ -16,6 +16,7 @@ export default function ApiCatalogue() {
   const [method, setMethod] = useState('All');
   const [integration, setIntegration] = useState('All');
   const [show, setShow] = useState(false);
+  const [detail, setDetail] = useState(null);
   const [extra, setExtra] = useState(getUserApis);
   useEffect(() => subscribeUserApis(setExtra), []);
 
@@ -51,6 +52,7 @@ export default function ApiCatalogue() {
     { key: 'url', header: 'Endpoint', minWidth: 240, sortable: false, render: (r) => <code style={{ background: 'var(--surface-3)', padding: '2px 7px', borderRadius: 6, fontSize: 11.5, wordBreak: 'break-all' }}>{r.url}</code> },
     { key: 'authType', header: 'Auth', render: (r) => <Badge tone="lavender"><Lock size={10} /> {r.authType}</Badge> },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} tone={INT_STATUS_TONE[r.status]} /> },
+    { key: 'action', header: '', width: 46, align: 'center', sortable: false, render: (r) => <button className="btn btn-icon btn-ghost btn-sm" title="View details" onClick={(e) => { e.stopPropagation(); setDetail(r); }}><Eye size={15} /></button> },
   ];
 
   return (
@@ -76,7 +78,44 @@ export default function ApiCatalogue() {
         </div>
       </div>
 
-      <DataTable columns={columns} rows={filtered} loading={loading} exportName="api-catalogue.csv" searchPlaceholder="Search APIs, endpoints, integrations…" pageSize={15} />
+      <DataTable columns={columns} rows={filtered} loading={loading} exportName="api-catalogue.csv" searchPlaceholder="Search APIs, endpoints, integrations…" pageSize={15} onRowClick={setDetail} />
+
+      <Drawer open={!!detail} onClose={() => setDetail(null)} size="md"
+        title={detail?.name} subtitle={detail ? `${detail.id} · ${detail.integrationName}` : ''}
+        headerExtra={detail && <StatusBadge status={detail.status} tone={INT_STATUS_TONE[detail.status]} />}>
+        {detail && (
+          <div className="flex-col gap-4">
+            <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+              <div className="detail-list">
+                <DetailRow label="Method"><MethodBadge method={detail.method} /></DetailRow>
+                <DetailRow label="Purpose">{detail.purpose || '—'}</DetailRow>
+                <DetailRow label="Integration">{detail.integrationName}</DetailRow>
+                <DetailRow label="Endpoint URL"><code style={{ background: 'var(--surface-3)', padding: '2px 7px', borderRadius: 6, fontSize: 11.5, wordBreak: 'break-all' }}>{detail.url}</code></DetailRow>
+                <DetailRow label="Sandbox Base URL">{detail.sandboxUrl || '—'}</DetailRow>
+                <DetailRow label="Live Base URL">{detail.liveUrl || '—'}</DetailRow>
+                <DetailRow label="Authentication"><Badge tone="lavender"><Lock size={10} /> {detail.authType}</Badge></DetailRow>
+                <DetailRow label="Headers">{detail.headers || '—'}</DetailRow>
+                <DetailRow label="Status"><StatusBadge status={detail.status} tone={INT_STATUS_TONE[detail.status]} /></DetailRow>
+              </div>
+            </div>
+            {(() => {
+              const pay = PAYLOADS.find((p) => p.apiId === detail.id);
+              const request = detail.requestPayload || pay?.request;
+              const success = detail.successResponse || pay?.response;
+              const error = detail.errorResponse || pay?.errors;
+              return (request || success || error) ? (
+                <>
+                  {request && <CodeBlock label="Request Payload">{request}</CodeBlock>}
+                  {success && <CodeBlock label="Success Response">{success}</CodeBlock>}
+                  {error && <CodeBlock label="Error Response">{error}</CodeBlock>}
+                </>
+              ) : (
+                <div className="t-xs ink-3 text-center" style={{ padding: '10px', border: '1px dashed var(--border-strong)', borderRadius: 10 }}>No payload samples captured for this API.</div>
+              );
+            })()}
+          </div>
+        )}
+      </Drawer>
 
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add API" subtitle="Document an API endpoint (Module 3)"
         submitLabel="Save API" onSubmit={addApi}

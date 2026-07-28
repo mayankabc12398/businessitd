@@ -30,7 +30,6 @@ const IntegrationWorkflow = lazy(() => import('./pages/integration/Workflow'));
 const ApiCatalogue = lazy(() => import('./pages/integration/ApiCatalogue'));
 const Payloads = lazy(() => import('./pages/integration/Payloads'));
 const HimsChanges = lazy(() => import('./pages/integration/HimsChanges'));
-const SourceCode = lazy(() => import('./pages/integration/SourceCode'));
 const ClientImplementations = lazy(() => import('./pages/integration/ClientImplementations'));
 const IntegrationTesting = lazy(() => import('./pages/integration/Testing'));
 const VersionHistory = lazy(() => import('./pages/integration/VersionHistory'));
@@ -103,7 +102,6 @@ export default function App() {
             <Route path="integration/apis" element={page(<ApiCatalogue />)} />
             <Route path="integration/payloads" element={page(<Payloads />)} />
             <Route path="integration/hims-changes" element={page(<HimsChanges />)} />
-            <Route path="integration/source-code" element={page(<SourceCode />)} />
             <Route path="integration/clients" element={page(<ClientImplementations />)} />
             <Route path="integration/testing" element={page(<IntegrationTesting />)} />
             <Route path="integration/versions" element={page(<VersionHistory />)} />
