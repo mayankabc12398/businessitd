@@ -4,10 +4,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Lightbulb, Plus, Eye, CheckCircle2, Recycle, Building2, TrendingUp,
-  GitBranch, Code2, FlaskConical, Rocket, Users, CircleDollarSign,
+  GitBranch, Code2, FlaskConical, Rocket, Users, CircleDollarSign, ArrowRight, PenLine,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
+import { getFeatures, subscribeFeatures, addFeature as storeAddFeature, advanceFeature, ADVANCE_LABEL, setFeatureData } from '../../data/featuresStore';
 import {
   PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast,
   Drawer, Tabs, DetailRow, EmptyState,
@@ -20,12 +21,14 @@ import {
 } from '../../data/revenue';
 import { StatusChip, PRIO_TONE, ImpactBar, ADOPT_TONE, UAT_TONE } from './_shared';
 
-function FeatureDetail({ feature: f, onClose }) {
+function FeatureDetail({ feature: f, onClose, onAdvance }) {
   const [tab, setTab] = useState('overview');
-  const ba = BUSINESS_ANALYSIS[f.id];
-  const ta = TECHNICAL_ANALYSIS[f.id];
+  const [form, setForm] = useState(null); // 'ba' | 'ta' | 'dev'
+  const toast = useToast();
+  const ba = BUSINESS_ANALYSIS[f.id] || f.ba || null;
+  const ta = TECHNICAL_ANALYSIS[f.id] || f.ta || null;
   const wf = FEATURE_WORKFLOWS[f.id];
-  const dev = DEV_DETAILS[f.id];
+  const dev = DEV_DETAILS[f.id] || f.dev || null;
   const impact = IMPACT[f.id];
   const screens = featureScreens(f.id);
   const tests = featureTests(f.id);
@@ -56,7 +59,12 @@ function FeatureDetail({ feature: f, onClose }) {
             <div className="flex items-center gap-1 flex-wrap">
               {WORKFLOW_STEPS.map((s) => <span key={s.key} title={s.label} style={{ flex: 1, minWidth: 20, height: 7, borderRadius: 4, background: s.step <= stage ? 'var(--primary)' : 'var(--surface-3)' }} />)}
             </div>
-            <div className="t-xs ink-3 mt-2">{WORKFLOW_STEPS[stage - 1]?.label} — {WORKFLOW_STEPS[stage - 1]?.desc}</div>
+            <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+              <div className="t-xs ink-3">{WORKFLOW_STEPS[stage - 1]?.label} — {WORKFLOW_STEPS[stage - 1]?.desc}</div>
+              {ADVANCE_LABEL[f.status]
+                ? <button className="btn btn-primary btn-sm" onClick={onAdvance}>{ADVANCE_LABEL[f.status]} <ArrowRight size={14} /></button>
+                : <Badge tone="success"><CheckCircle2 size={11} /> Shared with all clients</Badge>}
+            </div>
           </div>
           <div className="card"><div style={{ padding: 4 }}>
             <DetailRow label="Feature ID">{f.id}</DetailRow>
@@ -78,31 +86,41 @@ function FeatureDetail({ feature: f, onClose }) {
         </div>
       )}
 
-      {tab === 'business' && (ba ? (
-        <div className="card"><div style={{ padding: 4 }}>
-          <DetailRow label="Objective">{ba.objective}</DetailRow>
-          <DetailRow label="Existing Workflow">{ba.existingWorkflow}</DetailRow>
-          <DetailRow label="New Workflow">{ba.newWorkflow}</DetailRow>
-          <DetailRow label="Benefits">{ba.benefits}</DetailRow>
-          <DetailRow label="Functional Requirements">{ba.functionalReq}</DetailRow>
-          <DetailRow label="Non-Functional Requirements">{ba.nonFunctionalReq}</DetailRow>
-          <DetailRow label="Dependencies">{ba.dependencies}</DetailRow>
-          <DetailRow label="Assumptions">{ba.assumptions}</DetailRow>
-        </div></div>
-      ) : <EmptyState title="Business analysis not documented yet" />)}
+      {tab === 'business' && (
+        <div className="flex-col gap-3">
+          <div className="flex justify-end"><button className="btn btn-outline btn-sm" onClick={() => setForm('ba')}><PenLine size={13} /> {ba ? 'Edit' : 'Add'} Business Analysis</button></div>
+          {ba ? (
+            <div className="card"><div style={{ padding: 4 }}>
+              <DetailRow label="Objective">{ba.objective}</DetailRow>
+              <DetailRow label="Existing Workflow">{ba.existingWorkflow}</DetailRow>
+              <DetailRow label="New Workflow">{ba.newWorkflow}</DetailRow>
+              <DetailRow label="Benefits">{ba.benefits}</DetailRow>
+              <DetailRow label="Functional Requirements">{ba.functionalReq}</DetailRow>
+              <DetailRow label="Non-Functional Requirements">{ba.nonFunctionalReq}</DetailRow>
+              <DetailRow label="Dependencies">{ba.dependencies}</DetailRow>
+              <DetailRow label="Assumptions">{ba.assumptions}</DetailRow>
+            </div></div>
+          ) : <EmptyState title="Business analysis not documented yet" desc="Click “Add Business Analysis” to document it." />}
+        </div>
+      )}
 
-      {tab === 'technical' && (ta ? (
-        <div className="card"><div style={{ padding: 4 }}>
-          <DetailRow label="Database Changes">{ta.dbChanges}</DetailRow>
-          <DetailRow label="Tables">{ta.tables}</DetailRow>
-          <DetailRow label="Stored Procedures">{ta.storedProcs}</DetailRow>
-          <DetailRow label="APIs">{ta.apis}</DetailRow>
-          <DetailRow label="Background Jobs">{ta.backgroundJobs}</DetailRow>
-          <DetailRow label="Reports">{ta.reports}</DetailRow>
-          <DetailRow label="Mobile App Changes">{ta.mobileChanges}</DetailRow>
-          <DetailRow label="Portal Changes">{ta.portalChanges}</DetailRow>
-        </div></div>
-      ) : <EmptyState title="Technical analysis not documented yet" />)}
+      {tab === 'technical' && (
+        <div className="flex-col gap-3">
+          <div className="flex justify-end"><button className="btn btn-outline btn-sm" onClick={() => setForm('ta')}><PenLine size={13} /> {ta ? 'Edit' : 'Add'} Technical</button></div>
+          {ta ? (
+            <div className="card"><div style={{ padding: 4 }}>
+              <DetailRow label="Database Changes">{ta.dbChanges}</DetailRow>
+              <DetailRow label="Tables">{ta.tables}</DetailRow>
+              <DetailRow label="Stored Procedures">{ta.storedProcs}</DetailRow>
+              <DetailRow label="APIs">{ta.apis}</DetailRow>
+              <DetailRow label="Background Jobs">{ta.backgroundJobs}</DetailRow>
+              <DetailRow label="Reports">{ta.reports}</DetailRow>
+              <DetailRow label="Mobile App Changes">{ta.mobileChanges}</DetailRow>
+              <DetailRow label="Portal Changes">{ta.portalChanges}</DetailRow>
+            </div></div>
+          ) : <EmptyState title="Technical analysis not documented yet" desc="Click “Add Technical” to document it." />}
+        </div>
+      )}
 
       {tab === 'screens' && (screens.length ? (
         <div className="flex-col gap-2">
@@ -135,20 +153,25 @@ function FeatureDetail({ feature: f, onClose }) {
         </div>
       ) : <EmptyState icon={<GitBranch size={24} />} title="Workflow not documented yet" />)}
 
-      {tab === 'dev' && (dev ? (
-        <div className="card"><div style={{ padding: 4 }}>
-          <DetailRow label="Project">{dev.project}</DetailRow>
-          <DetailRow label="Branch"><code style={{ fontSize: 11.5 }}>{dev.branch}</code></DetailRow>
-          <DetailRow label="Developer">{dev.developer}</DetailRow>
-          <DetailRow label="Start Date">{dev.startDate}</DetailRow>
-          <DetailRow label="Completion Date">{dev.completionDate}</DetailRow>
-          <DetailRow label="Code Location"><code style={{ fontSize: 11.5 }}>{dev.codeLocation}</code></DetailRow>
-          <DetailRow label="Files Modified">{dev.filesModified}</DetailRow>
-          <DetailRow label="Classes Modified">{dev.classesModified}</DetailRow>
-          <DetailRow label="APIs Created">{dev.apisCreated}</DetailRow>
-          <DetailRow label="SQL Scripts">{dev.sqlScripts}</DetailRow>
-        </div></div>
-      ) : <EmptyState icon={<Code2 size={24} />} title="Development details not captured yet" />)}
+      {tab === 'dev' && (
+        <div className="flex-col gap-3">
+          <div className="flex justify-end"><button className="btn btn-outline btn-sm" onClick={() => setForm('dev')}><PenLine size={13} /> {dev ? 'Edit' : 'Add'} Development</button></div>
+          {dev ? (
+            <div className="card"><div style={{ padding: 4 }}>
+              <DetailRow label="Project">{dev.project}</DetailRow>
+              <DetailRow label="Branch"><code style={{ fontSize: 11.5 }}>{dev.branch}</code></DetailRow>
+              <DetailRow label="Developer">{dev.developer}</DetailRow>
+              <DetailRow label="Start Date">{dev.startDate}</DetailRow>
+              <DetailRow label="Completion Date">{dev.completionDate}</DetailRow>
+              <DetailRow label="Code Location"><code style={{ fontSize: 11.5 }}>{dev.codeLocation}</code></DetailRow>
+              <DetailRow label="Files Modified">{dev.filesModified}</DetailRow>
+              <DetailRow label="Classes Modified">{dev.classesModified}</DetailRow>
+              <DetailRow label="APIs Created">{dev.apisCreated}</DetailRow>
+              <DetailRow label="SQL Scripts">{dev.sqlScripts}</DetailRow>
+            </div></div>
+          ) : <EmptyState icon={<Code2 size={24} />} title="Development details not captured yet" desc="Click “Add Development” to capture it." />}
+        </div>
+      )}
 
       {tab === 'testing' && (tests.length ? (
         <div className="flex-col gap-2">
@@ -196,43 +219,89 @@ function FeatureDetail({ feature: f, onClose }) {
           ))}
         </div>
       ) : <EmptyState icon={<Users size={24} />} title="Not adopted by any client yet" />)}
+
+      {/* Fill / edit documentation blocks — bind to the feature via the store */}
+      <FormDrawer key={`ba-${f.id}`} open={form === 'ba'} onClose={() => setForm(null)} title="Business Analysis" subtitle={f.name}
+        submitLabel="Save" initial={ba || undefined}
+        onSubmit={(v) => { setFeatureData(f.id, 'ba', v); toast.success('Business analysis saved', f.name); setForm(null); }}
+        fields={[
+          { name: 'objective', label: 'Objective', type: 'textarea', full: true, rows: 2 },
+          { name: 'existingWorkflow', label: 'Existing Workflow', type: 'textarea', full: true, rows: 2 },
+          { name: 'newWorkflow', label: 'New Workflow', type: 'textarea', full: true, rows: 2 },
+          { name: 'benefits', label: 'Benefits', type: 'textarea', full: true, rows: 2 },
+          { name: 'functionalReq', label: 'Functional Requirements', type: 'textarea', full: true, rows: 2 },
+          { name: 'nonFunctionalReq', label: 'Non-Functional Requirements', type: 'textarea', full: true, rows: 2 },
+          { name: 'dependencies', label: 'Dependencies', full: true },
+          { name: 'assumptions', label: 'Assumptions', full: true },
+        ]} />
+
+      <FormDrawer key={`ta-${f.id}`} open={form === 'ta'} onClose={() => setForm(null)} title="Technical Analysis" subtitle={f.name}
+        submitLabel="Save" initial={ta || undefined}
+        onSubmit={(v) => { setFeatureData(f.id, 'ta', v); toast.success('Technical analysis saved', f.name); setForm(null); }}
+        fields={[
+          { name: 'dbChanges', label: 'Database Changes', type: 'textarea', full: true, rows: 2 },
+          { name: 'tables', label: 'Tables', full: true },
+          { name: 'storedProcs', label: 'Stored Procedures', full: true },
+          { name: 'apis', label: 'APIs', full: true },
+          { name: 'backgroundJobs', label: 'Background Jobs', full: true },
+          { name: 'reports', label: 'Reports', full: true },
+          { name: 'mobileChanges', label: 'Mobile App Changes', full: true },
+          { name: 'portalChanges', label: 'Portal Changes', full: true },
+        ]} />
+
+      <FormDrawer key={`dev-${f.id}`} open={form === 'dev'} onClose={() => setForm(null)} title="Development Details" subtitle={f.name}
+        submitLabel="Save" initial={dev || undefined}
+        onSubmit={(v) => { setFeatureData(f.id, 'dev', v); toast.success('Development details saved', f.name); setForm(null); }}
+        fields={[
+          { name: 'project', label: 'Project', full: true },
+          { name: 'branch', label: 'Branch' },
+          { name: 'developer', label: 'Developer' },
+          { name: 'startDate', label: 'Start Date', type: 'date' },
+          { name: 'completionDate', label: 'Completion Date', type: 'date' },
+          { name: 'codeLocation', label: 'Code Location', full: true },
+          { name: 'filesModified', label: 'Files Modified', full: true },
+          { name: 'classesModified', label: 'Classes Modified', full: true },
+          { name: 'apisCreated', label: 'APIs Created', full: true },
+          { name: 'sqlScripts', label: 'SQL Scripts', full: true },
+        ]} />
     </Drawer>
   );
 }
 
 export default function AllFeatures() {
-  const { data: rows, loading } = useApi(() => api.getFeatures());
   const { data: kpis } = useApi(() => api.getSfrKpis());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [status, setStatus] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
-  const [detail, setDetail] = useState(null);
+  const [rows, setRows] = useState(getFeatures);
+  useEffect(() => subscribeFeatures(setRows), []);
+  const [detailId, setDetailId] = useState(null);
+  const loading = false;
 
-  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const allRows = rows;
+  const detail = useMemo(() => allRows.find((r) => r.id === detailId) || null, [allRows, detailId]);
   const statuses = ['All', ...FEATURE_STATUSES];
   const filtered = useMemo(() => allRows.filter((r) => status === 'All' || r.status === status), [allRows, status]);
 
   useEffect(() => {
     if (params.get('new') === '1') { setShow(true); params.delete('new'); setParams(params, { replace: true }); }
     const id = params.get('id');
-    if (id && allRows.length) {
-      const found = allRows.find((r) => r.id === id);
-      if (found) { setDetail(found); params.delete('id'); setParams(params, { replace: true }); }
-    }
+    if (id && allRows.some((r) => r.id === id)) { setDetailId(id); params.delete('id'); setParams(params, { replace: true }); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, allRows]);
 
+  const advance = (id) => { const nx = advanceFeature(id); if (nx) toast.success('Feature advanced', nx); };
+
   const addFeature = (v) => {
-    setExtra((prev) => [{
+    storeAddFeature({
       id: `FEA-${1001 + allRows.length}`, name: v.name, module: v.module, category: v.category, client: v.client,
-      requestDate: '2026-07-27', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
+      requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
       impactScore: 0, reusable: false, applicableTo: [], revenueGenerated: 0, devCost: 0, clientsUsing: 0, totalImpl: 0,
       supportTickets: 0, satisfaction: 0, roiScore: 0, adoptionRate: 0, functionalConsultant: v.functionalConsultant || '—',
       projectManager: v.projectManager || '—', developer: v.developer || 'TBD', requestedBy: v.requestedBy || '—',
       businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
-    }, ...prev]);
+    });
     toast.success('Feature registered', v.name);
     setShow(false);
   };
@@ -245,7 +314,7 @@ export default function AllFeatures() {
     { key: 'impactScore', header: 'Impact', minWidth: 130, accessor: (r) => r.impactScore, render: (r) => r.impactScore ? <ImpactBar score={r.impactScore} /> : <span className="ink-3">—</span> },
     { key: 'reusable', header: 'Reusable', align: 'center', accessor: (r) => (r.reusable ? 1 : 0), render: (r) => r.reusable ? <Recycle size={15} color="var(--success)" /> : <span className="ink-3">—</span> },
     { key: 'status', header: 'Status', render: (r) => <StatusChip status={r.status} /> },
-    { key: 'action', header: 'Action', sortable: false, align: 'center', render: (r) => <button className="btn btn-outline btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); setDetail(r); }} title="View details"><Eye size={14} /></button> },
+    { key: 'action', header: 'Action', sortable: false, align: 'center', render: (r) => <button className="btn btn-outline btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }} title="View details"><Eye size={14} /></button> },
   ];
 
   return (
@@ -265,7 +334,7 @@ export default function AllFeatures() {
         <div className="flex items-center gap-2 flex-wrap"><span className="t-sm fw-6 ink-2" style={{ marginRight: 4 }}>Status</span>{statuses.map((s) => <Chip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</Chip>)}</div>
       </div>
 
-      <DataTable columns={columns} rows={filtered} loading={loading} exportName="features.csv" searchPlaceholder="Search features, clients, modules…" pageSize={15} onRowClick={(r) => setDetail(r)} />
+      <DataTable columns={columns} rows={filtered} loading={loading} exportName="features.csv" searchPlaceholder="Search features, clients, modules…" pageSize={15} onRowClick={(r) => setDetailId(r.id)} />
 
       <FormDrawer open={show} onClose={() => setShow(false)} title="Register Feature" subtitle="Register a new feature request (Module 1)"
         submitLabel="Register Feature" onSubmit={addFeature}
@@ -284,7 +353,7 @@ export default function AllFeatures() {
           { name: 'proposedSolution', label: 'Proposed Solution', type: 'textarea', full: true, rows: 2 },
         ]} />
 
-      {detail && <FeatureDetail feature={detail} onClose={() => setDetail(null)} />}
+      {detail && <FeatureDetail feature={detail} onClose={() => setDetailId(null)} onAdvance={() => advance(detail.id)} />}
     </div>
   );
 }
