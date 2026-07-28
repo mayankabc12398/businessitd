@@ -2,25 +2,25 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Inbox, Plus, Eye, Clock, ClipboardCheck } from 'lucide-react';
-import { api } from '../../services/api';
-import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
 import { FEATURE_MODULES, FEATURE_CATEGORIES, PRIORITIES } from '../../data/revenue';
+import { getFeatures, subscribeFeatures, addFeature as storeAddFeature } from '../../data/featuresStore';
 import { StatusChip, PRIO_TONE, ImpactBar } from './_shared';
 
 const EARLY = ['New Request', 'Under Review', 'Approved'];
 
 export default function FeatureRequests() {
-  const { data: rows, loading } = useApi(() => api.getFeatures());
   const toast = useToast();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [priority, setPriority] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [rows, setRows] = useState(getFeatures);
+  useEffect(() => subscribeFeatures(setRows), []);
+  const loading = false;
 
-  const requests = useMemo(() => [...extra, ...(rows || []).filter((r) => EARLY.includes(r.status))], [extra, rows]);
+  const requests = useMemo(() => rows.filter((r) => EARLY.includes(r.status)), [rows]);
   const priorities = ['All', ...PRIORITIES];
   const filtered = useMemo(() => requests.filter((r) => priority === 'All' || r.priority === priority), [requests, priority]);
 
@@ -30,12 +30,14 @@ export default function FeatureRequests() {
   }, [params]);
 
   const addRequest = (v) => {
-    setExtra((prev) => [{
-      id: `FEA-${2001 + prev.length}`, name: v.name, module: v.module, category: v.category, client: v.client,
-      requestDate: '2026-07-27', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
-      impactScore: 0, reusable: false, requestedBy: v.requestedBy || '—', businessProblem: v.businessProblem || '', proposedSolution: '',
+    storeAddFeature({
+      id: `FEA-${2001 + rows.length}`, name: v.name, module: v.module, category: v.category, client: v.client,
+      requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
+      impactScore: 0, reusable: false, applicableTo: [], revenueGenerated: 0, devCost: 0, clientsUsing: 0, totalImpl: 0,
+      supportTickets: 0, satisfaction: 0, roiScore: 0, adoptionRate: 0,
+      requestedBy: v.requestedBy || '—', businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
       functionalConsultant: '—', projectManager: 'Devendra Singh', developer: 'TBD',
-    }, ...prev]);
+    });
     toast.success('Feature request logged', v.name);
     setShow(false);
   };

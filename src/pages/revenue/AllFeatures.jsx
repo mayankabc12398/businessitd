@@ -339,7 +339,14 @@ export default function AllFeatures() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Register Feature" subtitle="Register a new feature request (Module 1)"
         submitLabel="Register Feature" onSubmit={addFeature}
         fields={[
-          { name: 'name', label: 'Feature Name', required: true, full: true, placeholder: 'e.g. Insurance Card Integration' },
+          { name: 'name', label: 'Feature Name', type: 'search', required: true, full: true,
+            placeholder: 'Select a feature request…',
+            options: allRows.filter((r) => ['New Request', 'Under Review', 'Approved'].includes(r.status)).map((r) => ({ value: r.name, label: `${r.name} — ${r.client}` })),
+            onChange: (name) => { const src = allRows.find((r) => r.name === name); return src ? {
+              module: src.module, category: src.category, client: src.client, requestedBy: src.requestedBy,
+              priority: src.priority, estDevTime: src.estDevTime, functionalConsultant: src.functionalConsultant,
+              projectManager: src.projectManager, developer: src.developer, businessProblem: src.businessProblem, proposedSolution: src.proposedSolution || '',
+            } : null; } },
           { name: 'module', label: 'Module', type: 'select', required: true, options: FEATURE_MODULES },
           { name: 'category', label: 'Category', type: 'select', required: true, options: FEATURE_CATEGORIES },
           { name: 'client', label: 'Requested By (Client)', required: true, placeholder: 'Hospital name' },

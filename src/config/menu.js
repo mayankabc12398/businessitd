@@ -106,8 +106,8 @@ const REVENUE_MENU = [
   {
     group: 'Feature Management',
     items: [
-      { path: '/revenue/features', label: 'All Features', icon: Lightbulb, tint: 'lavender', desc: 'Master feature register & 360° record' },
       { path: '/revenue/requests', label: 'Feature Requests', icon: Inbox, tint: 'blue', desc: 'New client requests & registration' },
+      { path: '/revenue/features', label: 'All Features', icon: Lightbulb, tint: 'lavender', desc: 'Master feature register & 360° record' },
       { path: '/revenue/roadmap', label: 'Feature Roadmap', icon: Map, tint: 'sky', desc: 'Pipeline board across every stage' },
       { path: '/revenue/categories', label: 'Feature Categories', icon: Shapes, tint: 'peach', desc: 'Browse features by category' },
     ],

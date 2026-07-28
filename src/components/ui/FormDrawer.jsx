@@ -17,7 +17,9 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
   const [values, setValues] = useState(build);
   useEffect(() => { if (open) setValues(build()); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
 
-  const set = (name, v) => setValues((s) => ({ ...s, [name]: v }));
+  // Update a field; if the field defines onChange(value, values) → patch object,
+  // merge that patch too (used for auto-filling related fields on select).
+  const set = (f, v) => setValues((s) => ({ ...s, [f.name]: v, ...(f.onChange ? f.onChange(v, s) : null) }));
   const visible = fields.filter((f) => !f.show || f.show(values));
   const valid = visible.every((f) => {
     if (!f.required) return true;
@@ -41,24 +43,24 @@ export function FormDrawer({ open, onClose, title, subtitle, size = 'md', fields
           <div key={f.name} style={{ gridColumn: f.full ? '1 / -1' : 'auto' }}>
             {f.type === 'checkbox' ? (
               <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
-                <SwitchField checked={!!values[f.name]} onChange={(v) => set(f.name, v)} label={f.label} desc={f.help} />
+                <SwitchField checked={!!values[f.name]} onChange={(v) => set(f, v)} label={f.label} desc={f.help} />
               </div>
             ) : (
             <Field label={f.label} required={f.required} help={f.help}>
               {f.type === 'textarea' ? (
-                <Textarea rows={f.rows || 3} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
+                <Textarea rows={f.rows || 3} value={values[f.name]} onChange={(e) => set(f, e.target.value)} placeholder={f.placeholder} />
               ) : f.type === 'select' ? (
-                <Select value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} options={f.options} placeholder={f.placeholder || 'Select…'} />
+                <Select value={values[f.name]} onChange={(e) => set(f, e.target.value)} options={f.options} placeholder={f.placeholder || 'Select…'} />
               ) : f.type === 'search' ? (
-                <SearchSelect value={values[f.name]} onChange={(v) => set(f.name, v)} options={f.options} placeholder={f.placeholder || 'Search & select…'} />
+                <SearchSelect value={values[f.name]} onChange={(v) => set(f, v)} options={f.options} placeholder={f.placeholder || 'Search & select…'} />
               ) : f.type === 'multiselect' ? (
-                <MultiSelect value={values[f.name]} onChange={(v) => set(f.name, v)} options={f.options} placeholder={f.placeholder || 'Select…'} />
+                <MultiSelect value={values[f.name]} onChange={(v) => set(f, v)} options={f.options} placeholder={f.placeholder || 'Select…'} />
               ) : f.type === 'tags' ? (
-                <TagInput value={values[f.name]} onChange={(v) => set(f.name, v)} suggestions={f.suggestions} placeholder={f.placeholder} />
+                <TagInput value={values[f.name]} onChange={(v) => set(f, v)} suggestions={f.suggestions} placeholder={f.placeholder} />
               ) : f.type === 'file' ? (
-                <FileDrop value={values[f.name]} onChange={(v) => set(f.name, v)} placeholder={f.placeholder} accept={f.accept} />
+                <FileDrop value={values[f.name]} onChange={(v) => set(f, v)} placeholder={f.placeholder} accept={f.accept} />
               ) : (
-                <Input type={f.type || 'text'} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
+                <Input type={f.type || 'text'} value={values[f.name]} onChange={(e) => set(f, e.target.value)} placeholder={f.placeholder} />
               )}
             </Field>
             )}
