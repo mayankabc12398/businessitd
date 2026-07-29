@@ -10,7 +10,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Drawer, Badge, StatusBadge, Chip, DetailRow, FormDrawer, Field, Input, Select, SearchSelect, SwitchField, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { HOSPITAL_DEPTS } from '../data/masters';
 
 const fmtDateTime = (dt) => {
@@ -23,6 +22,7 @@ const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1
 export default function Srs() {
   const { data: rows, loading } = useApi(() => api.getSrsSchedule());
   const { data: kpis } = useApi(() => api.getSrsKpis());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [proj, setProj] = useState('All');
@@ -43,7 +43,7 @@ export default function Srs() {
   const activeRow = useMemo(() => allRows.find((r) => r.id === activeId) || null, [allRows, activeId]);
 
   const addSrs = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const points = Number(v.srsPoints) || 0;
     const depts = Array.isArray(v.dept) ? v.dept : v.dept ? [v.dept] : [];
     const rows = depts.map((dept, i) => ({
@@ -59,7 +59,7 @@ export default function Srs() {
 
   // Bulk schedule — one SRS session per selected department, optional schedule mail
   const scheduleBulk = ({ projectCode, consultant, planned, points, depts, sendMail, attach }) => {
-    const p = PROJECTS.find((x) => x.code === projectCode);
+    const p = (projects || []).find((x) => x.code === projectCode);
     const name = p ? p.name.split(' — ')[0] : projectCode;
     const pts = Number(points) || 0;
     const docs = attach || [];
@@ -212,7 +212,7 @@ export default function Srs() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule SRS Session" subtitle="Plan a department-wise SRS discussion"
         submitLabel="Schedule" onSubmit={addSrs}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'phase', label: 'Phase', type: 'select', required: true, options: ['Kick-off', 'Discovery', 'Requirement Gathering', 'Gap Review', 'Final Sign-off'] },
           { name: 'dept', label: 'Department', type: 'multiselect', required: true, options: HOSPITAL_DEPTS, placeholder: 'Select one or more…' },
           { name: 'consultant', label: 'Consultant', type: 'select', required: true, options: ['Neha Patel', 'Amit Verma', 'Meera Krishnan'] },
@@ -222,7 +222,7 @@ export default function Srs() {
           { name: 'srsPoints', label: 'No. of SRS Points', type: 'number', placeholder: '0' },
         ]} />
 
-      <BulkSchedule open={bulk} onClose={() => setBulk(false)} onSchedule={scheduleBulk} />
+      <BulkSchedule open={bulk} onClose={() => setBulk(false)} onSchedule={scheduleBulk} projects={projects} />
     </div>
   );
 }
@@ -303,7 +303,7 @@ function SignoffUpload({ docs, signed, onUpload, onRemove }) {
 // ---- Bulk schedule (multi-department) + schedule mail ----
 const CONSULTANTS = ['Neha Patel', 'Amit Verma', 'Meera Krishnan'];
 
-function BulkSchedule({ open, onClose, onSchedule }) {
+function BulkSchedule({ open, onClose, onSchedule, projects }) {
   const [projectCode, setProjectCode] = useState('');
   const [consultant, setConsultant] = useState('Neha Patel');
   const [planned, setPlanned] = useState('');
@@ -319,7 +319,7 @@ function BulkSchedule({ open, onClose, onSchedule }) {
     if (open) { setProjectCode(''); setConsultant('Neha Patel'); setPlanned(''); setPoints(''); setDepts([]); setSendMail(true); setAttach([]); }
   }, [open]);
 
-  const projOptions = useMemo(() => PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })), []);
+  const projOptions = useMemo(() => (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })), [projects]);
   const allSel = depts.length === HOSPITAL_DEPTS.length;
   const toggleDept = (d) => setDepts((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
   const addFiles = (fl) => {

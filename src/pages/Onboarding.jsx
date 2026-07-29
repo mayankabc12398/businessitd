@@ -9,11 +9,8 @@ import {
   Database, FileSignature, FlaskConical, Bug, ClipboardList,
 } from 'lucide-react';
 import { PageHeader, MetricCard, Badge, Avatar, ProgressBar, FormDrawer, useToast } from '../components/ui';
-import { PROJECTS, PROJECT_KPIS } from '../data/projects';
-import { CLIENTS, findClient } from '../data/clients';
-import { DEV_ITEMS, DELIVERY_KPIS, UAT_CASES } from '../data/delivery';
-import { MASTER_DATA, MASTERDATA_KPIS } from '../data/masterdata';
-import { SRS_SCHEDULE, SRS_KPIS } from '../data/srs';
+import { api } from '../services/api';
+import { useApi } from '../hooks/useApi';
 import { HIMS_MODULES } from '../data/masters';
 import { fmtDate } from '../utils/format';
 
@@ -34,11 +31,13 @@ const STEPS = [
 ];
 
 const ADD_ACTIONS = ['Add Project', 'Schedule Kick-off', 'Add Build Item', 'Add Master', 'Schedule SRS', 'Add Test Case'];
-const projectOpts = () => PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name }));
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { data: projects } = useApi(() => api.getProjects());
+  const { data: clients } = useApi(() => api.getClients());
+  const projectOpts = () => (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name }));
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState('fwd');
   const [add, setAdd] = useState(false);
@@ -116,7 +115,7 @@ export default function Onboarding() {
           submitLabel="Add Project" onSubmit={(v) => { toast.success('Project added', v.name || 'New project'); setAdd(false); }}
           fields={[
             { name: 'name', label: 'Project Name', required: true, full: true, placeholder: 'e.g. City Care Hospital — HIMS Implementation' },
-            { name: 'clientId', label: 'Client / Hospital', type: 'search', required: true, options: CLIENTS.map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` })) },
+            { name: 'clientId', label: 'Client / Hospital', type: 'search', required: true, options: (clients || []).map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` })) },
             { name: 'implType', label: 'Implementation Type', type: 'select', default: 'New Implementation', options: ['New Implementation', 'Migration', 'Version Upgrade', 'Multi-branch Rollout'] },
             { name: 'priority', label: 'Priority', type: 'select', default: 'Medium', options: ['Low', 'Medium', 'High', 'Critical'] },
             { name: 'targetGoLive', label: 'Target Go-Live', type: 'date' },
@@ -124,7 +123,7 @@ export default function Onboarding() {
       )}
       {step === 1 && (
         <FormDrawer key="add-kickoff" open={add} onClose={() => setAdd(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"
-          submitLabel="Schedule" onSubmit={(v) => { const p = PROJECTS.find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setAdd(false); }}
+          submitLabel="Schedule" onSubmit={(v) => { const p = (projects || []).find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setAdd(false); }}
           fields={[
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: projectOpts() },
             { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
@@ -180,14 +179,18 @@ export default function Onboarding() {
 
 // ── Step 1 · Projects & Clients ──────────────────────────
 function StepProjects() {
-  const rows = PROJECTS.slice(0, 8);
+  const { data: projects } = useApi(() => api.getProjects());
+  const { data: kpis } = useApi(() => api.getProjectKpis());
+  const { data: clients } = useApi(() => api.getClients());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const rows = (projects || []).slice(0, 8);
   return (
     <div className="flex-col gap-4">
       <div className="kpi-grid stagger">
-        <MetricCard label="Projects" value={PROJECT_KPIS.total} tint="blue" icon={<FolderKanban size={19} />} footer="Across all clients" />
-        <MetricCard label="Active" value={PROJECT_KPIS.inProgress} tint="indigo" icon={<Rocket size={19} />} footer="In delivery" />
-        <MetricCard label="Clients / Hospitals" value={CLIENTS.length} tint="cyan" icon={<Building2 size={19} />} footer="Onboarded groups" />
-        <MetricCard label="Contract Value" value={money(PROJECT_KPIS.contractValue)} tint="mint" icon={<FileText size={19} />} footer="Total booked" />
+        <MetricCard label="Projects" value={kpis?.total ?? '—'} tint="blue" icon={<FolderKanban size={19} />} footer="Across all clients" />
+        <MetricCard label="Active" value={kpis?.inProgress ?? '—'} tint="indigo" icon={<Rocket size={19} />} footer="In delivery" />
+        <MetricCard label="Clients / Hospitals" value={(clients || []).length} tint="cyan" icon={<Building2 size={19} />} footer="Onboarded groups" />
+        <MetricCard label="Contract Value" value={kpis ? money(kpis.contractValue) : '—'} tint="mint" icon={<FileText size={19} />} footer="Total booked" />
       </div>
       <div className="card card-pad">
         <div className="card-title mb-1 flex items-center gap-2"><FolderKanban size={15} /> Projects & their clients</div>
@@ -216,7 +219,10 @@ function StepProjects() {
 
 // ── Step 2 · Kick-off ────────────────────────────────────
 function StepKickoff() {
-  const rows = PROJECTS.filter((p) => p.status !== 'Completed').slice(0, 8);
+  const { data: projects } = useApi(() => api.getProjects());
+  const { data: clients } = useApi(() => api.getClients());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const rows = (projects || []).filter((p) => p.status !== 'Completed').slice(0, 8);
   const koDone = rows.filter((p) => koStatus(p) === 'Done').length;
   const scopeValue = rows.reduce((s, p) => s + p.contractValue, 0);
   return (
@@ -255,14 +261,16 @@ function StepKickoff() {
 // ── Step 3 · Deployment & Configuration ──────────────────
 const DEV_TONE = { Deployed: 'success', Configured: 'info', 'In Testing': 'primary', 'In Development': 'pending', 'Not Started': 'neutral' };
 function StepDeploy() {
-  const rows = DEV_ITEMS.slice(0, 8);
-  const configured = DEV_ITEMS.filter((d) => d.status === 'Configured').length;
-  const inDev = DEV_ITEMS.filter((d) => d.status === 'In Development').length;
+  const { data: devItems } = useApi(() => api.getDevItems());
+  const { data: kpis } = useApi(() => api.getDeliveryKpis());
+  const rows = (devItems || []).slice(0, 8);
+  const configured = (devItems || []).filter((d) => d.status === 'Configured').length;
+  const inDev = (devItems || []).filter((d) => d.status === 'In Development').length;
   return (
     <div className="flex-col gap-4">
       <div className="kpi-grid stagger">
-        <MetricCard label="Build Items" value={DELIVERY_KPIS.devTotal} tint="peach" icon={<Server size={19} />} footer="Dev + config" />
-        <MetricCard label="Deployed" value={DELIVERY_KPIS.devDeployed} tint="green" icon={<Rocket size={19} />} footer="Live on server" />
+        <MetricCard label="Build Items" value={kpis?.devTotal ?? '—'} tint="peach" icon={<Server size={19} />} footer="Dev + config" />
+        <MetricCard label="Deployed" value={kpis?.devDeployed ?? '—'} tint="green" icon={<Rocket size={19} />} footer="Live on server" />
         <MetricCard label="Configured" value={configured} tint="cyan" icon={<CheckCircle2 size={19} />} footer="Ready to test" />
         <MetricCard label="In Development" value={inDev} tint="lavender" icon={<Layers size={19} />} footer="Active build" />
       </div>
@@ -294,14 +302,16 @@ function StepDeploy() {
 // ── Step 4 · Master Data ─────────────────────────────────
 const MD_TONE = { Imported: 'success', 'Imported (with errors)': 'warning', 'Validation Pending': 'pending', Awaited: 'neutral' };
 function StepMaster() {
-  const rows = MASTER_DATA.slice(0, 8);
+  const { data: masterData } = useApi(() => api.getMasterData());
+  const { data: kpis } = useApi(() => api.getMasterDataKpis());
+  const rows = (masterData || []).slice(0, 8);
   return (
     <div className="flex-col gap-4">
       <div className="kpi-grid stagger">
-        <MetricCard label="Masters" value={MASTERDATA_KPIS.total} tint="lemon" icon={<Database size={19} />} footer="Requested" />
-        <MetricCard label="Received" value={MASTERDATA_KPIS.received} tint="sky" icon={<ClipboardList size={19} />} footer={`${MASTERDATA_KPIS.awaited} awaited`} />
-        <MetricCard label="Imported" value={MASTERDATA_KPIS.imported} tint="green" icon={<CheckCircle2 size={19} />} footer={`${MASTERDATA_KPIS.errors} with errors`} />
-        <MetricCard label="Records" value={num(MASTERDATA_KPIS.records)} tint="cyan" icon={<Layers size={19} />} footer="Imported rows" />
+        <MetricCard label="Masters" value={kpis?.total ?? '—'} tint="lemon" icon={<Database size={19} />} footer="Requested" />
+        <MetricCard label="Received" value={kpis?.received ?? '—'} tint="sky" icon={<ClipboardList size={19} />} footer={`${kpis?.awaited ?? 0} awaited`} />
+        <MetricCard label="Imported" value={kpis?.imported ?? '—'} tint="green" icon={<CheckCircle2 size={19} />} footer={`${kpis?.errors ?? 0} with errors`} />
+        <MetricCard label="Records" value={num(kpis?.records || 0)} tint="cyan" icon={<Layers size={19} />} footer="Imported rows" />
       </div>
       <div className="card card-pad">
         <div className="card-title mb-1 flex items-center gap-2"><Database size={15} /> Request, validate & import masters</div>
@@ -325,14 +335,16 @@ function StepMaster() {
 // ── Step 5 · SRS ─────────────────────────────────────────
 const SRS_TONE = { 'Signed Off': 'success', Completed: 'info', 'In Progress': 'pending', Scheduled: 'neutral' };
 function StepSrs() {
-  const rows = SRS_SCHEDULE.slice(0, 8);
+  const { data: srsSchedule } = useApi(() => api.getSrsSchedule());
+  const { data: kpis } = useApi(() => api.getSrsKpis());
+  const rows = (srsSchedule || []).slice(0, 8);
   return (
     <div className="flex-col gap-4">
       <div className="kpi-grid stagger">
-        <MetricCard label="SRS Scheduled" value={SRS_KPIS.scheduled} tint="lavender" icon={<FileSignature size={19} />} footer="Department sessions" />
-        <MetricCard label="Completed" value={SRS_KPIS.completed} tint="green" icon={<CheckCircle2 size={19} />} footer={`${SRS_KPIS.signed} signed off`} />
-        <MetricCard label="Gaps Identified" value={SRS_KPIS.gaps} tint="orange" icon={<Layers size={19} />} footer="From gap analysis" />
-        <MetricCard label="Change Requests" value={SRS_KPIS.crs} tint="peach" icon={<FileText size={19} />} footer={money(SRS_KPIS.crValue)} />
+        <MetricCard label="SRS Scheduled" value={kpis?.scheduled ?? '—'} tint="lavender" icon={<FileSignature size={19} />} footer="Department sessions" />
+        <MetricCard label="Completed" value={kpis?.completed ?? '—'} tint="green" icon={<CheckCircle2 size={19} />} footer={`${kpis?.signed ?? 0} signed off`} />
+        <MetricCard label="Gaps Identified" value={kpis?.gaps ?? '—'} tint="orange" icon={<Layers size={19} />} footer="From gap analysis" />
+        <MetricCard label="Change Requests" value={kpis?.crs ?? '—'} tint="peach" icon={<FileText size={19} />} footer={money(kpis?.crValue || 0)} />
       </div>
       <div className="card card-pad">
         <div className="card-title mb-1 flex items-center gap-2"><FileSignature size={15} /> Department-wise SRS & sign-off</div>
@@ -356,14 +368,16 @@ function StepSrs() {
 // ── Step 6 · Testing & UAT ───────────────────────────────
 const UAT_TONE = { Passed: 'success', Failed: 'danger', 'In Progress': 'primary', Blocked: 'warning', 'Not Started': 'neutral' };
 function StepUat() {
-  const rows = UAT_CASES.slice(0, 8);
+  const { data: uatCases } = useApi(() => api.getUatCases());
+  const { data: kpis } = useApi(() => api.getDeliveryKpis());
+  const rows = (uatCases || []).slice(0, 8);
   return (
     <div className="flex-col gap-4">
       <div className="kpi-grid stagger">
-        <MetricCard label="Test Modules" value={DELIVERY_KPIS.uatModules} tint="lavender" icon={<FlaskConical size={19} />} footer="Under UAT" />
-        <MetricCard label="Passed" value={DELIVERY_KPIS.uatPassed} tint="green" icon={<CheckCircle2 size={19} />} footer="Signed by client" />
-        <MetricCard label="Open Bugs" value={DELIVERY_KPIS.bugsOpen} tint="rose" icon={<Bug size={19} />} footer="Awaiting fix" />
-        <MetricCard label="Critical" value={DELIVERY_KPIS.bugsCritical} tint="orange" icon={<Bug size={19} />} footer="High severity" />
+        <MetricCard label="Test Modules" value={kpis?.uatModules ?? '—'} tint="lavender" icon={<FlaskConical size={19} />} footer="Under UAT" />
+        <MetricCard label="Passed" value={kpis?.uatPassed ?? '—'} tint="green" icon={<CheckCircle2 size={19} />} footer="Signed by client" />
+        <MetricCard label="Open Bugs" value={kpis?.bugsOpen ?? '—'} tint="rose" icon={<Bug size={19} />} footer="Awaiting fix" />
+        <MetricCard label="Critical" value={kpis?.bugsCritical ?? '—'} tint="orange" icon={<Bug size={19} />} footer="High severity" />
       </div>
       <div className="card card-pad">
         <div className="card-title mb-1 flex items-center gap-2"><FlaskConical size={15} /> Test cases & UAT sign-off</div>

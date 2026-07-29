@@ -6,13 +6,13 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { HIMS_MODULES, ISSUE_TYPES, SEVERITIES } from '../data/masters';
 
 const sevTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
 export default function Issues() {
   const { data: rows, loading } = useApi(() => api.getIssues());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [sevF, setSevF] = useState('All');
@@ -31,7 +31,7 @@ export default function Issues() {
   const open = allRows.filter((r) => !['Resolved', 'Closed'].includes(r.status));
 
   const addIssue = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     setExtra((prev) => [{
       id: `ISS-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
       title: v.title, type: v.type, module: v.module, severity: v.severity, status: 'Open',
@@ -77,7 +77,7 @@ export default function Issues() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Log Issue" subtitle="Raise a cross-project implementation issue"
         submitLabel="Log Issue" onSubmit={addIssue}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'title', label: 'Issue Summary', required: true, full: true, placeholder: 'Describe the issue…' },
           { name: 'type', label: 'Type', type: 'select', required: true, default: 'Bug', options: ISSUE_TYPES },
           { name: 'severity', label: 'Severity', type: 'select', required: true, default: 'Medium', options: SEVERITIES },

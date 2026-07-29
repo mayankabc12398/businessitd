@@ -5,11 +5,11 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
-import { INTEGRATIONS } from '../../data/integration';
 import { INT_STATUS_TONE } from './_shared';
 
 export default function ClientImplementations() {
   const { data: rows, loading } = useApi(() => api.getClientImplementations());
+  const { data: integrations } = useApi(() => api.getIntegrations());
   const toast = useToast();
   const [status, setStatus] = useState('All');
   const [show, setShow] = useState(false);
@@ -21,7 +21,7 @@ export default function ClientImplementations() {
   const live = allRows.filter((r) => r.status === 'Live').length;
 
   const addImpl = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     setExtra((prev) => [{
       id: `CI-${String(allRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       client: v.client, status: v.status || 'UAT', liveDate: v.liveDate || null, version: v.version || 'V1.0',
@@ -61,7 +61,7 @@ export default function ClientImplementations() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add Client Implementation" subtitle="Record where an integration is deployed (Module 9)"
         submitLabel="Save" onSubmit={addImpl}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'client', label: 'Client / Hospital', required: true, placeholder: 'e.g. Lumumba Hospital' },
           { name: 'status', label: 'Status', type: 'select', default: 'UAT', options: ['Live', 'UAT', 'Pending'] },
           { name: 'version', label: 'Version', placeholder: 'V1.0' },

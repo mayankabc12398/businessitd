@@ -8,15 +8,22 @@ import {
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Badge, Chip, Accordion, Skeleton, DetailRow } from '../../components/ui';
-import {
-  INTEGRATION_TYPES, integrationApis, integrationClients, integrationDocs, integrationHimsChanges,
-} from '../../data/integration';
+import { INTEGRATION_TYPES } from '../../data/integration';
 
 export default function Reuse() {
   const navigate = useNavigate();
   const { data: integrations, loading } = useApi(() => api.getIntegrations());
   const { data: notes } = useApi(() => api.getDeveloperNotes());
+  const { data: apis } = useApi(() => api.getApis());
+  const { data: clients } = useApi(() => api.getClientImplementations());
+  const { data: docsList } = useApi(() => api.getIntegrationDocuments());
+  const { data: himsChanges } = useApi(() => api.getHimsChanges());
   const [type, setType] = useState('All');
+
+  const integrationApis = (id) => (apis || []).filter((a) => a.integrationId === id || a.integrationCode === id);
+  const integrationClients = (id) => (clients || []).filter((c) => c.integrationId === id || c.integrationCode === id);
+  const integrationDocs = (id) => (docsList || []).filter((d) => d.integrationId === id || d.integrationCode === id);
+  const integrationHimsChanges = (id) => (himsChanges || []).filter((h) => h.integrationId === id || h.integrationCode === id);
 
   const reusable = useMemo(() => (integrations || []).filter((i) => i.reusable), [integrations]);
   const filtered = useMemo(() => reusable.filter((i) => type === 'All' || i.type === type), [reusable, type]);

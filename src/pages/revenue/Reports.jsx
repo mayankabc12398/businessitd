@@ -4,21 +4,24 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Badge, Skeleton, LineChart, DonutChart, HBarList } from '../../components/ui';
 import { fmtINR, fmtNum, exportCSV } from '../../utils/format';
-import { FEATURES, CLIENT_ADOPTION, FEATURE_LIBRARY, FEATURE_STATUSES } from '../../data/revenue';
-
-const REPORTS = [
-  { key: 'features', label: 'Feature Register', desc: 'All features with status, category & impact', icon: <Lightbulb size={16} />, rows: FEATURES, cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Module', key: 'module' }, { header: 'Category', key: 'category' }, { header: 'Client', key: 'client' }, { header: 'Status', key: 'status' }, { header: 'Impact', key: 'impactScore' }, { header: 'Revenue', key: 'revenueGenerated' }], file: 'feature-register.csv' },
-  { key: 'library', label: 'Feature Library', desc: 'Reusable / published features', icon: <Recycle size={16} />, rows: FEATURE_LIBRARY, cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Category', key: 'category' }, { header: 'Impact', key: 'impactScore' }, { header: 'ROI', key: 'roiScore' }], file: 'feature-library.csv' },
-  { key: 'adoption', label: 'Client Adoption', desc: 'Which client runs which feature', icon: <Building2 size={16} />, rows: CLIENT_ADOPTION, cols: [{ header: 'Client', key: 'client' }, { header: 'Feature', key: 'featureName' }, { header: 'Version', key: 'version' }, { header: 'Status', key: 'status' }, { header: 'Go-Live', key: 'goLive' }], file: 'client-adoption.csv' },
-];
+import { FEATURE_STATUSES } from '../../data/revenue';
 
 export default function Reports() {
   const { data: kpis } = useApi(() => api.getSfrKpis());
   const { data: mix } = useApi(() => api.getFeatureStatusMix());
   const { data: trend } = useApi(() => api.getFeatureTrend());
+  const { data: features } = useApi(() => api.getFeatures());
+  const { data: library } = useApi(() => api.getFeatureLibrary());
+  const { data: adoption } = useApi(() => api.getClientAdoption());
+
+  const REPORTS = [
+    { key: 'features', label: 'Feature Register', desc: 'All features with status, category & impact', icon: <Lightbulb size={16} />, rows: features || [], cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Module', key: 'module' }, { header: 'Category', key: 'category' }, { header: 'Client', key: 'client' }, { header: 'Status', key: 'status' }, { header: 'Impact', key: 'impactScore' }, { header: 'Revenue', key: 'revenueGenerated' }], file: 'feature-register.csv' },
+    { key: 'library', label: 'Feature Library', desc: 'Reusable / published features', icon: <Recycle size={16} />, rows: library || [], cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Category', key: 'category' }, { header: 'Impact', key: 'impactScore' }, { header: 'ROI', key: 'roiScore' }], file: 'feature-library.csv' },
+    { key: 'adoption', label: 'Client Adoption', desc: 'Which client runs which feature', icon: <Building2 size={16} />, rows: adoption || [], cols: [{ header: 'Client', key: 'client' }, { header: 'Feature', key: 'featureName' }, { header: 'Version', key: 'version' }, { header: 'Status', key: 'status' }, { header: 'Go-Live', key: 'goLive' }], file: 'client-adoption.csv' },
+  ];
 
   const revByCat = {};
-  FEATURES.forEach((f) => { revByCat[f.category] = (revByCat[f.category] || 0) + f.revenueGenerated; });
+  (features || []).forEach((f) => { revByCat[f.category] = (revByCat[f.category] || 0) + f.revenueGenerated; });
   const revBars = Object.entries(revByCat).map(([label, value]) => ({ label, value })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
 
   return (

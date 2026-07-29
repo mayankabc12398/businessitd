@@ -1,126 +1,156 @@
 // ============================================================
-// Mock API layer — simulates async REST calls over dummy data so
-// loading states, skeletons and optimistic updates behave like prod.
+// API seam. Every method keeps its original name/signature so pages that call
+// `api.*` need no changes — but each now hits the businessAPI backend through
+// src/networkServices (hospediav12-fe format) instead of hardcoded data.
+// Entity reads/writes go straight through; per-workspace KPI/mix rollups the
+// backend does not expose are computed from the live lists (see ./derive).
 // ============================================================
-import { PROJECTS, PROJECT_KPIS, findProject } from '../data/projects';
-import { CLIENTS, findClient } from '../data/clients';
-import { TEAM, CURRENT_USER, ROLES } from '../data/team';
-import { SRS_SCHEDULE, REQUIREMENTS, SRS_KPIS } from '../data/srs';
-import { MASTER_DATA, MASTERDATA_KPIS } from '../data/masterdata';
-import { DEV_ITEMS, UAT_CASES, BUGS, TRAINING, GOLIVE_READINESS, LIVE_IMPORTS, PARALLEL_GOLIVE, FINAL_GOLIVE, DELIVERY_KPIS, GOLIVE_KPIS } from '../data/delivery';
-import { ISSUES, RISKS, SIGNOFFS, DOCUMENTS, GOVERNANCE_KPIS } from '../data/governance';
-import { ACTIVITY_SCHEDULE, SCHEDULE_KPIS } from '../data/schedule';
-import { HOSPITAL_USERS, USERS_KPIS } from '../data/users';
-import { NOTIFICATIONS, ACTIVITY_FEED, UPCOMING, PROJECT_TREND, REVENUE_TREND, PHASE_DISTRIBUTION, HEALTH_MIX, CATEGORY_MIX, WORKLOAD, STAGE_FUNNEL } from '../data/misc';
-import { INTEGRATIONS, PROCESS_FLOWS, APIS, PAYLOADS, HIMS_CHANGES, DB_CHANGES, SOURCE_CODE, SCREENS, CLIENT_IMPLEMENTATIONS, TEST_CASES, INT_DOCUMENTS, VERSION_HISTORY, DEVELOPER_NOTES, VENDORS, TYPE_MIX, SIR_KPIS } from '../data/integration';
-import { FEATURES, BUSINESS_ANALYSIS, TECHNICAL_ANALYSIS, FEATURE_WORKFLOWS, DEV_DETAILS, IMPACT, SCREEN_CHANGES, FEATURE_TESTS, CLIENT_ADOPTION, KB_DOCS, APPROVALS, FEATURE_LIBRARY, TOP_BY_IMPACT, STATUS_MIX, CATEGORY_MIX as FEATURE_CATEGORY_MIX, FEATURE_TREND, SFR_KPIS } from '../data/revenue';
+import * as clientsApi from "../networkServices/clientsApi";
+import * as projectsApi from "../networkServices/projectsApi";
+import * as teamApi from "../networkServices/teamApi";
+import * as deliveryApi from "../networkServices/deliveryApi";
+import * as governanceApi from "../networkServices/governanceApi";
+import * as activitiesApi from "../networkServices/activitiesApi";
+import * as integrationsApi from "../networkServices/integrationsApi";
+import * as apisApi from "../networkServices/apisApi";
+import * as featuresApi from "../networkServices/featuresApi";
+import * as featureDocsApi from "../networkServices/featureDocsApi";
+import * as dashboardApi from "../networkServices/dashboardApi";
+import * as sfrApi from "../networkServices/sfrApi";
+import * as lookupsApi from "../networkServices/lookupsApi";
+import {
+  normalizeClient,
+  normalizeClients,
+  normalizeProject,
+  normalizeProjects,
+  normalizeList,
+} from "../networkServices/normalize";
+import * as d from "./derive";
 
-const LATENCY = 280;
-const clone = (v) => JSON.parse(JSON.stringify(v));
-const respond = (data, ms = LATENCY) =>
-  new Promise((resolve) => setTimeout(() => resolve(clone(data)), ms + Math.random() * 160));
+// Never let a derived-analytics sub-fetch crash the whole widget.
+const safe = (p) => p.catch(() => []);
 
 export const api = {
   // session / people
-  getCurrentUser: () => respond(CURRENT_USER, 100),
-  getTeam: () => respond(TEAM),
-  getRoles: () => respond(ROLES),
+  getCurrentUser: async () => {
+    const team = await safe(teamApi.getTeamMemberList());
+    return (
+      team.find((t) => /pmo/i.test(t.role || "")) || team[0] || { name: "PMO", role: "PMO" }
+    );
+  },
+  getTeam: () => teamApi.getTeamMemberList().then(normalizeList),
+  getRoles: () => lookupsApi.getRoleList(),
 
   // projects
-  getProjects: () => respond(PROJECTS),
-  getProject: (code) => respond(findProject(code) || null),
-  getProjectKpis: () => respond(PROJECT_KPIS, 120),
+  getProjects: () => projectsApi.getProjectList().then(normalizeProjects),
+  getProject: (code) => projectsApi.getProjectByCode(code).then(normalizeProject),
+  getProjectKpis: async () => d.projectKpis(await api.getProjects()),
 
   // clients
-  getClients: () => respond(CLIENTS),
-  getClient: (id) => respond(findClient(id) || null),
+  getClients: () => clientsApi.getClientList().then(normalizeClients),
+  getClient: (id) => clientsApi.getClientById(id).then(normalizeClient),
 
   // srs / requirements
-  getSrsSchedule: () => respond(SRS_SCHEDULE),
-  getRequirements: () => respond(REQUIREMENTS),
-  getSrsKpis: () => respond(SRS_KPIS, 120),
+  getSrsSchedule: () => deliveryApi.getSrsSessionList().then(normalizeList),
+  getRequirements: () => deliveryApi.getRequirementList().then(normalizeList),
+  getSrsKpis: async () => d.listKpis(await safe(api.getRequirements())),
 
   // master data
-  getMasterData: () => respond(MASTER_DATA),
-  getMasterDataKpis: () => respond(MASTERDATA_KPIS, 120),
+  getMasterData: () => deliveryApi.getMasterDataRecordList().then(normalizeList),
+  getMasterDataKpis: async () => d.listKpis(await safe(api.getMasterData())),
 
   // delivery
-  getDevItems: () => respond(DEV_ITEMS),
-  getUatCases: () => respond(UAT_CASES),
-  getBugs: () => respond(BUGS),
-  getTraining: () => respond(TRAINING),
-  getGoLiveReadiness: () => respond(GOLIVE_READINESS),
-  getLiveImports: () => respond(LIVE_IMPORTS),
-  getParallelGoLive: () => respond(PARALLEL_GOLIVE),
-  getFinalGoLive: () => respond(FINAL_GOLIVE),
-  getDeliveryKpis: () => respond(DELIVERY_KPIS, 120),
-  getGoLiveKpis: () => respond(GOLIVE_KPIS, 120),
+  getDevItems: () => deliveryApi.getDevelopmentItemList().then(normalizeList),
+  getUatCases: () => deliveryApi.getUatCaseList().then(normalizeList),
+  getBugs: () => deliveryApi.getBugList().then(normalizeList),
+  getTraining: () => deliveryApi.getTrainingList().then(normalizeList),
+  getGoLiveReadiness: () => deliveryApi.getGoLiveReadinessList().then(normalizeList),
+  getLiveImports: () => deliveryApi.getLiveImportList().then(normalizeList),
+  getParallelGoLive: () => deliveryApi.getParallelGoLiveList().then(normalizeList),
+  getFinalGoLive: () => deliveryApi.getFinalGoLiveList().then(normalizeList),
+  getDeliveryKpis: async () => {
+    const [dev, uat, bugs, training] = await Promise.all([
+      safe(api.getDevItems()), safe(api.getUatCases()), safe(api.getBugs()), safe(api.getTraining()),
+    ]);
+    return d.deliveryKpis({ dev, uat, bugs, training });
+  },
+  getGoLiveKpis: async () => d.listKpis(await safe(api.getGoLiveReadiness())),
 
   // activity schedule
-  getActivitySchedule: () => respond(ACTIVITY_SCHEDULE),
-  getScheduleKpis: () => respond(SCHEDULE_KPIS, 120),
+  getActivitySchedule: () => activitiesApi.getActivityList().then(normalizeList),
+  getScheduleKpis: async () => d.listKpis(await safe(api.getActivitySchedule())),
 
   // hospital users & access
-  getHospitalUsers: () => respond(HOSPITAL_USERS),
-  getUsersKpis: () => respond(USERS_KPIS, 120),
+  getHospitalUsers: () => activitiesApi.getHospitalUserList().then(normalizeList),
+  getUsersKpis: async () => d.listKpis(await safe(api.getHospitalUsers())),
 
   // governance
-  getIssues: () => respond(ISSUES),
-  getRisks: () => respond(RISKS),
-  getSignoffs: () => respond(SIGNOFFS),
-  getDocuments: () => respond(DOCUMENTS),
-  getGovernanceKpis: () => respond(GOVERNANCE_KPIS, 120),
+  getIssues: () => governanceApi.getIssueList().then(normalizeList),
+  getRisks: () => governanceApi.getRiskList().then(normalizeList),
+  getSignoffs: () => governanceApi.getSignoffList().then(normalizeList),
+  getDocuments: () => governanceApi.getDocumentList().then(normalizeList),
+  getGovernanceKpis: async () => {
+    const [issues, risks, signoffs, documents] = await Promise.all([
+      safe(api.getIssues()), safe(api.getRisks()), safe(api.getSignoffs()), safe(api.getDocuments()),
+    ]);
+    return d.governanceKpis({ issues, risks, signoffs, documents });
+  },
 
   // dashboard widgets
-  getNotifications: () => respond(NOTIFICATIONS, 140),
-  getActivityFeed: () => respond(ACTIVITY_FEED),
-  getUpcoming: () => respond(UPCOMING),
-  getProjectTrend: () => respond(PROJECT_TREND),
-  getRevenueTrend: () => respond(REVENUE_TREND),
-  getPhaseDistribution: () => respond(PHASE_DISTRIBUTION),
-  getHealthMix: () => respond(HEALTH_MIX),
-  getCategoryMix: () => respond(CATEGORY_MIX),
-  getWorkload: () => respond(WORKLOAD),
-  getStageFunnel: () => respond(STAGE_FUNNEL),
+  getNotifications: () => dashboardApi.getNotificationList().then(normalizeList),
+  getActivityFeed: () => dashboardApi.getActivityFeedList().then(normalizeList),
+  getUpcoming: () => dashboardApi.getUpcomingEventList().then(normalizeList),
+  getDashboardSummary: () => dashboardApi.getDashboardSummary(),
+  getProjectTrend: () => Promise.resolve(d.emptyTrend()),
+  getRevenueTrend: () => Promise.resolve(d.emptyTrend()),
+  getPhaseDistribution: async () => d.phaseDistribution(await safe(api.getProjects())),
+  getHealthMix: async () => d.healthMix(await safe(api.getProjects())),
+  getCategoryMix: async () => d.projectCategoryMix(await safe(api.getProjects())),
+  getWorkload: async () => d.mixBy(await safe(api.getProjects()), (p) => p.pm),
+  getStageFunnel: async () => d.stageFunnel(await safe(api.getProjects())),
 
-  // smart integration records (SIR) — central integration repository
-  getIntegrations: () => respond(INTEGRATIONS),
-  getProcessFlows: () => respond(PROCESS_FLOWS),
-  getApis: () => respond(APIS),
-  getPayloads: () => respond(PAYLOADS),
-  getHimsChanges: () => respond(HIMS_CHANGES),
-  getDbChanges: () => respond(DB_CHANGES),
-  getSourceCode: () => respond(SOURCE_CODE),
-  getScreens: () => respond(SCREENS),
-  getClientImplementations: () => respond(CLIENT_IMPLEMENTATIONS),
-  getTestCases: () => respond(TEST_CASES),
-  getIntegrationDocuments: () => respond(INT_DOCUMENTS),
-  getVersionHistory: () => respond(VERSION_HISTORY),
-  getDeveloperNotes: () => respond(DEVELOPER_NOTES),
-  getVendors: () => respond(VENDORS),
-  getTypeMix: () => respond(TYPE_MIX, 120),
-  getSirKpis: () => respond(SIR_KPIS, 120),
+  // smart integration records (SIR)
+  getIntegrations: () => integrationsApi.getIntegrationList().then(normalizeList),
+  getProcessFlows: () => integrationsApi.getProcessFlowList().then(normalizeList),
+  getApis: () => apisApi.getApiList().then(normalizeList),
+  getPayloads: () => apisApi.getApiPayloadList().then(normalizeList),
+  getHimsChanges: () => integrationsApi.getHimsChangeList().then(normalizeList),
+  getDbChanges: () => integrationsApi.getDbChangeList().then(normalizeList),
+  getSourceCode: () => integrationsApi.getSourceCodeList().then(normalizeList),
+  getScreens: () => integrationsApi.getIntegrationScreenList().then(normalizeList),
+  getClientImplementations: () => integrationsApi.getClientImplementationList().then(normalizeList),
+  getTestCases: () => integrationsApi.getIntegrationTestCaseList().then(normalizeList),
+  getIntegrationDocuments: () => integrationsApi.getIntegrationDocumentList().then(normalizeList),
+  getVersionHistory: () => integrationsApi.getVersionHistoryList().then(normalizeList),
+  getDeveloperNotes: () => integrationsApi.getDeveloperNoteList().then(normalizeList),
+  getVendors: () => integrationsApi.getVendorList().then(normalizeList),
+  getTypeMix: async () => d.mixBy(await safe(api.getIntegrations()), (i) => i.type),
+  getSirKpis: async () => d.listKpis(await safe(api.getIntegrations())),
 
-  // smart feature repository (SFR) — feature intelligence platform
-  getFeatures: () => respond(FEATURES),
-  getBusinessAnalysis: () => respond(BUSINESS_ANALYSIS),
-  getTechnicalAnalysis: () => respond(TECHNICAL_ANALYSIS),
-  getFeatureWorkflows: () => respond(FEATURE_WORKFLOWS),
-  getDevDetails: () => respond(DEV_DETAILS),
-  getFeatureImpact: () => respond(IMPACT),
-  getScreenChanges: () => respond(SCREEN_CHANGES),
-  getFeatureTests: () => respond(FEATURE_TESTS),
-  getClientAdoption: () => respond(CLIENT_ADOPTION),
-  getKbDocs: () => respond(KB_DOCS),
-  getApprovals: () => respond(APPROVALS),
-  getFeatureLibrary: () => respond(FEATURE_LIBRARY),
-  getTopByImpact: () => respond(TOP_BY_IMPACT, 120),
-  getFeatureStatusMix: () => respond(STATUS_MIX, 120),
-  getFeatureCategoryMix: () => respond(FEATURE_CATEGORY_MIX, 120),
-  getFeatureTrend: () => respond(FEATURE_TREND, 120),
-  getSfrKpis: () => respond(SFR_KPIS, 120),
+  // smart feature repository (SFR)
+  getFeatures: () => featuresApi.getFeatureList().then(normalizeList),
+  getBusinessAnalysis: () => featureDocsApi.getFeatureBusinessAnalysisList().then(normalizeList),
+  getTechnicalAnalysis: () => featureDocsApi.getFeatureTechnicalAnalysisList().then(normalizeList),
+  getFeatureWorkflows: () => featureDocsApi.getFeatureWorkflowList().then(normalizeList),
+  getDevDetails: () => featureDocsApi.getFeatureDevDetailsList().then(normalizeList),
+  getFeatureImpact: () => featureDocsApi.getFeatureImpactList().then(normalizeList),
+  getScreenChanges: () => featureDocsApi.getFeatureScreenChangeList().then(normalizeList),
+  getFeatureTests: () => featureDocsApi.getFeatureTestList().then(normalizeList),
+  getClientAdoption: () => featureDocsApi.getFeatureClientAdoptionList().then(normalizeList),
+  getKbDocs: () => featureDocsApi.getFeatureKbDocList().then(normalizeList),
+  getApprovals: () => featureDocsApi.getFeatureApprovalList().then(normalizeList),
+  getFeatureLibrary: () => featuresApi.getFeatureList().then(normalizeList),
+  getTopByImpact: async () => (await safe(api.getFeatures())).slice(0, 10),
+  getFeatureStatusMix: async () => d.mixBy(await safe(api.getFeatures()), (f) => f.status),
+  getFeatureCategoryMix: () => sfrApi.getFeatureCategoryMix(),
+  getFeatureTrend: () => Promise.resolve(d.emptyTrend()),
+  getSfrKpis: () => sfrApi.getSfrKpis(),
 
-  // mutations (simulated echo so UIs can optimistic-update)
-  submit: (entity, payload) => respond({ ok: true, entity, id: `${entity.slice(0, 3).toUpperCase()}-NEW-${Math.floor(Math.random() * 9000) + 1000}`, payload }, 460),
-  actOn: (entity, id, action, remarks = '') => respond({ ok: true, entity, id, action, remarks, actedBy: CURRENT_USER.name }, 380),
+  // ---- mutations ----
+  // Optimistic client-side echo used by a few forms for instant feedback.
+  // Not a data source; kept generic (no hardcoded datasets).
+  submit: (entity, payload) =>
+    Promise.resolve({ ok: true, entity, id: `${entity.slice(0, 3).toUpperCase()}-NEW-${Date.now()}`, payload }),
+  actOn: (entity, id, action, remarks = "") =>
+    Promise.resolve({ ok: true, entity, id, action, remarks }),
 };

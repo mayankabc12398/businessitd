@@ -4,20 +4,23 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Badge, Skeleton, DonutChart, BarChart, HBarList } from '../../components/ui';
 import { exportCSV } from '../../utils/format';
-import { INTEGRATIONS, APIS, CLIENT_IMPLEMENTATIONS, INTEGRATION_STATUS } from '../../data/integration';
-
-const REPORTS = [
-  { key: 'integrations', label: 'Integrations Register', desc: 'All integrations with vendor, type & status', icon: <Boxes size={16} />, rows: INTEGRATIONS, cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Type', key: 'type' }, { header: 'Vendor', key: 'vendor' }, { header: 'Status', key: 'status' }, { header: 'APIs', key: 'totalApis' }, { header: 'Last Updated', key: 'lastUpdated' }], file: 'integrations-register.csv' },
-  { key: 'apis', label: 'API Catalogue', desc: 'Every documented API endpoint', icon: <Braces size={16} />, rows: APIS, cols: [{ header: 'ID', key: 'id' }, { header: 'Integration', key: 'integrationName' }, { header: 'API', key: 'name' }, { header: 'Method', key: 'method' }, { header: 'URL', key: 'url' }, { header: 'Auth', key: 'authType' }], file: 'api-catalogue.csv' },
-  { key: 'clients', label: 'Client Implementations', desc: 'Which hospital runs which integration', icon: <Building2 size={16} />, rows: CLIENT_IMPLEMENTATIONS, cols: [{ header: 'Client', key: 'client' }, { header: 'Integration', key: 'integrationName' }, { header: 'Version', key: 'version' }, { header: 'Status', key: 'status' }, { header: 'Live Date', key: 'liveDate' }], file: 'client-implementations.csv' },
-];
+import { INTEGRATION_STATUS } from '../../data/integration';
 
 export default function Reports() {
   const { data: kpis } = useApi(() => api.getSirKpis());
   const { data: mix } = useApi(() => api.getTypeMix());
+  const { data: integrations } = useApi(() => api.getIntegrations());
+  const { data: apis } = useApi(() => api.getApis());
+  const { data: clients } = useApi(() => api.getClientImplementations());
 
-  const byStatus = INTEGRATION_STATUS.map((s) => ({ label: s, value: INTEGRATIONS.filter((i) => i.status === s).length }));
-  const apisByIntegration = [...INTEGRATIONS].map((i) => ({ label: i.name, value: i.totalApis })).sort((a, b) => b.value - a.value).slice(0, 7);
+  const REPORTS = [
+    { key: 'integrations', label: 'Integrations Register', desc: 'All integrations with vendor, type & status', icon: <Boxes size={16} />, rows: (integrations || []), cols: [{ header: 'ID', key: 'id' }, { header: 'Name', key: 'name' }, { header: 'Type', key: 'type' }, { header: 'Vendor', key: 'vendor' }, { header: 'Status', key: 'status' }, { header: 'APIs', key: 'totalApis' }, { header: 'Last Updated', key: 'lastUpdated' }], file: 'integrations-register.csv' },
+    { key: 'apis', label: 'API Catalogue', desc: 'Every documented API endpoint', icon: <Braces size={16} />, rows: (apis || []), cols: [{ header: 'ID', key: 'id' }, { header: 'Integration', key: 'integrationName' }, { header: 'API', key: 'name' }, { header: 'Method', key: 'method' }, { header: 'URL', key: 'url' }, { header: 'Auth', key: 'authType' }], file: 'api-catalogue.csv' },
+    { key: 'clients', label: 'Client Implementations', desc: 'Which hospital runs which integration', icon: <Building2 size={16} />, rows: (clients || []), cols: [{ header: 'Client', key: 'client' }, { header: 'Integration', key: 'integrationName' }, { header: 'Version', key: 'version' }, { header: 'Status', key: 'status' }, { header: 'Live Date', key: 'liveDate' }], file: 'client-implementations.csv' },
+  ];
+
+  const byStatus = INTEGRATION_STATUS.map((s) => ({ label: s, value: (integrations || []).filter((i) => i.status === s).length }));
+  const apisByIntegration = [...(integrations || [])].map((i) => ({ label: i.name, value: i.totalApis })).sort((a, b) => b.value - a.value).slice(0, 7);
 
   return (
     <div className="page">

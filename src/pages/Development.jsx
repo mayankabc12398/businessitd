@@ -8,7 +8,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 
 const typeTone = { Development: 'info', Configuration: 'pending', Deployment: 'success' };
 const envTone = { Production: 'danger', UAT: 'warning', Staging: 'info', Training: 'neutral' };
@@ -16,6 +15,7 @@ const envTone = { Production: 'danger', UAT: 'warning', Staging: 'info', Trainin
 export default function Development() {
   const { data: rows, loading } = useApi(() => api.getDevItems());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [proj, setProj] = useState('All');
   const [typeF, setTypeF] = useState('All');
@@ -29,7 +29,7 @@ export default function Development() {
   const activeRow = useMemo(() => allRows.find((r) => r.id === activeId) || null, [allRows, activeId]);
 
   const addItem = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     setExtra((prev) => [{
       id: `DEP-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
       feature: `${v.env} Deployment`, module: v.serverHost || '—', type: 'Deployment',
@@ -97,7 +97,7 @@ export default function Development() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add Deployment / Server Credentials" subtitle="Record server access, AnyDesk & credentials used for deployment"
         submitLabel="Save Credentials" onSubmit={addItem}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'scheduleDate', label: 'Schedule Date', type: 'date', full: true },
           { name: 'env', label: 'Environment', type: 'select', required: true, default: 'Production', options: ['Production', 'UAT', 'Staging', 'Training'] },
           { name: 'developer', label: 'Deployed By', type: 'select', required: true, options: ['Sana Qureshi', 'Karthik Rao', 'Vikram Menon'] },

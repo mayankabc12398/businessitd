@@ -12,12 +12,10 @@ import {
   ProgressBar, Skeleton, FormDrawer, useToast,
 } from '../components/ui';
 import { fmtDate, fmtNum } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 
 const CHK_ICON = { Done: <CheckCircle2 size={15} color="var(--success)" />, 'In Progress': <Clock size={15} color="var(--info)" />, Pending: <Circle size={14} color="var(--text-3)" /> };
 const readyTone = (s) => ({ Ready: 'success', 'Almost Ready': 'warning', Preparing: 'info' }[s] || 'neutral');
 const LIVE_MASTERS = ['Doctors / Consultants', 'Services & Tariff', 'Pharmacy Items', 'Lab Tests', 'Patients (Active)', 'Outstanding Bills', 'Stock / Inventory', 'Insurance Panels', 'Ledger Balances'];
-const projName = (code) => { const p = PROJECTS.find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
 
 export default function GoLive() {
   const { data: readiness, loading } = useApi(() => api.getGoLiveReadiness());
@@ -25,6 +23,8 @@ export default function GoLive() {
   const { data: parallel } = useApi(() => api.getParallelGoLive());
   const { data: finalGl } = useApi(() => api.getFinalGoLive());
   const { data: kpis } = useApi(() => api.getGoLiveKpis());
+  const { data: projects } = useApi(() => api.getProjects());
+  const projName = (code) => { const p = (projects || []).find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
   const toast = useToast();
   const [tab, setTab] = useState('readiness');
   const [active, setActive] = useState(null);
@@ -48,7 +48,7 @@ export default function GoLive() {
     setShowImport(false);
   };
   const addFinal = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const pending = Number(v.pendingItems) || 0;
     setXFinal((prev) => [{
       id: `FGL-${v.projectCode}-n`, projectCode: v.projectCode, projectName: projName(v.projectCode),
@@ -178,7 +178,7 @@ export default function GoLive() {
         submitLabel="Save Plan" submitIcon={<ShieldCheck size={14} />}
         onSubmit={(v) => { toast.success('Cutover plan saved', projName(v.projectCode)); setShowCutover(false); }}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'cutoverDate', label: 'Cutover Date', type: 'date', required: true },
           { name: 'window', label: 'Downtime Window', placeholder: 'e.g. 02:00 – 06:00' },
           { name: 'lead', label: 'Cutover Lead', type: 'select', options: ['Rahul Sharma', 'Priya Nair', 'Karthik Rao'] },
@@ -189,7 +189,7 @@ export default function GoLive() {
       <FormDrawer open={showImport} onClose={() => setShowImport(false)} title="Record Live Data Import" subtitle="Production master import at go-live"
         submitLabel="Record Import" submitIcon={<Upload size={14} />} onSubmit={addImport}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).map((p) => ({ value: p.code, label: p.name })) },
           { name: 'master', label: 'Master', type: 'select', required: true, options: LIVE_MASTERS },
           { name: 'importedBy', label: 'Imported By', type: 'select', options: ['Karthik Rao', 'Sana Qureshi', 'Vikram Menon'] },
           { name: 'records', label: 'Records Imported', type: 'number', required: true, placeholder: '0' },
@@ -199,7 +199,7 @@ export default function GoLive() {
       <FormDrawer open={showFinal} onClose={() => setShowFinal(false)} title="Record Final Go-Live" subtitle="Production cutover completion"
         submitLabel="Record Go-Live" submitIcon={<Award size={14} />} onSubmit={addFinal}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).map((p) => ({ value: p.code, label: p.name })) },
           { name: 'goLiveDate', label: 'Go-Live Date', type: 'date', required: true },
           { name: 'approvedBy', label: 'Approved By', placeholder: 'Client authority' },
           { name: 'pendingItems', label: 'Pending Items', type: 'number', placeholder: '0' },

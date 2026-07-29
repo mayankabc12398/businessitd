@@ -6,13 +6,12 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
-import { FEATURES } from '../../data/revenue';
-
 const KB_TYPES = ['SRS', 'BRD', 'Screenshot', 'Training Video', 'SQL Script', 'Release Notes', 'User Manual', 'FAQ'];
 const KB_TONE = { SRS: 'blue', BRD: 'cyan', Screenshot: 'indigo', 'Training Video': 'rose', 'SQL Script': 'lemon', 'Release Notes': 'green', 'User Manual': 'lavender', FAQ: 'peach' };
 
 export default function KnowledgeBase() {
   const { data: rows, loading } = useApi(() => api.getKbDocs());
+  const { data: features } = useApi(() => api.getFeatures());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [type, setType] = useState('All');
@@ -29,7 +28,7 @@ export default function KnowledgeBase() {
   }, [params]);
 
   const addDoc = (v) => {
-    const parent = FEATURES.find((f) => f.id === v.featureId);
+    const parent = (features || []).find((f) => f.id === v.featureId || f.code === v.featureId);
     setExtra((prev) => [{
       id: `KB-${String(allRows.length + 1).padStart(2, '0')}`, featureId: v.featureId, featureName: parent?.name || v.featureId,
       name: v.name, type: v.type, size: v.size || '—', uploadedBy: v.uploadedBy || 'Devendra Singh', uploadedOn: '2026-07-27',
@@ -69,7 +68,7 @@ export default function KnowledgeBase() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Attach Document" subtitle="Add an artifact to a feature (Module 14)"
         submitLabel="Attach" submitIcon={<UploadCloud size={14} />} onSubmit={addDoc}
         fields={[
-          { name: 'featureId', label: 'Feature', type: 'search', required: true, full: true, options: FEATURES.map((f) => ({ value: f.id, label: f.name })) },
+          { name: 'featureId', label: 'Feature', type: 'search', required: true, full: true, options: (features || []).map((f) => ({ value: f.id, label: f.name })) },
           { name: 'name', label: 'Document Name', required: true, full: true, placeholder: 'e.g. Feature SRS.pdf' },
           { name: 'type', label: 'Type', type: 'select', required: true, options: KB_TYPES },
           { name: 'size', label: 'Size', placeholder: 'e.g. 1.2 MB' },

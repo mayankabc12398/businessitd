@@ -8,12 +8,9 @@ import {
   AlertTriangle, Info, ClipboardList, X, Activity, Sun, Moon, Check, LayoutGrid,
 } from 'lucide-react';
 import { WORKSPACES, activeWorkspace, FLAT_MENU } from '../config/menu';
-import { PROJECTS } from '../data/projects';
-import { CLIENTS } from '../data/clients';
-import { CURRENT_USER } from '../data/team';
-import { NOTIFICATIONS } from '../data/misc';
+import { api } from '../services/api';
 import { Avatar, Badge } from '../components/ui';
-import { useClickOutside, useDebounce } from '../hooks/useApi';
+import { useApi, useClickOutside, useDebounce } from '../hooks/useApi';
 
 const NOTIF_ICON = {
   approval: <CheckCheck size={15} color="var(--success)" />,
@@ -30,6 +27,8 @@ function GlobalSearch() {
   const ref = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const { data: projects } = useApi(() => api.getProjects());
+  const { data: clients } = useApi(() => api.getClients());
   useClickOutside(ref, () => setOpen(false));
 
   useEffect(() => {
@@ -49,10 +48,10 @@ function GlobalSearch() {
     const n = dq.toLowerCase();
     return {
       pages: FLAT_MENU.filter((m) => m.label.toLowerCase().includes(n) || m.desc.toLowerCase().includes(n)).slice(0, 3),
-      projects: PROJECTS.filter((p) => p.name.toLowerCase().includes(n) || p.code.toLowerCase().includes(n)).slice(0, 4),
-      clients: CLIENTS.filter((c) => c.name.toLowerCase().includes(n) || c.city.toLowerCase().includes(n)).slice(0, 3),
+      projects: (projects || []).filter((p) => p.name.toLowerCase().includes(n) || p.code.toLowerCase().includes(n)).slice(0, 4),
+      clients: (clients || []).filter((c) => c.name.toLowerCase().includes(n) || (c.city || '').toLowerCase().includes(n)).slice(0, 3),
     };
-  }, [dq]);
+  }, [dq, projects, clients]);
 
   const hasResults = results.pages.length + results.projects.length + results.clients.length > 0;
 
@@ -134,7 +133,9 @@ function ThemeToggle() {
 
 function NotificationsPop() {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(NOTIFICATIONS);
+  const { data: notifs } = useApi(() => api.getNotifications());
+  const [items, setItems] = useState([]);
+  useEffect(() => { setItems(notifs || []); }, [notifs]);
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false));
   const unread = items.filter((n) => n.unread).length;
@@ -266,26 +267,28 @@ function WorkspaceSwitcher() {
 
 function ProfilePop() {
   const [open, setOpen] = useState(false);
+  const { data: user } = useApi(() => api.getCurrentUser());
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false));
+  const u = user || { name: '', role: '', email: '' };
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button className="flex items-center gap-2" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 10 }} onClick={() => setOpen((o) => !o)}>
-        <Avatar name={CURRENT_USER.name} hue={0} size="md" ring />
+        <Avatar name={u.name} hue={0} size="md" ring />
         <span className="hide-mobile" style={{ textAlign: 'left' }}>
-          <span className="t-base fw-7 ink-1" style={{ display: 'block', lineHeight: 1.2 }}>{CURRENT_USER.name}</span>
-          <span className="t-xs ink-3">{CURRENT_USER.role}</span>
+          <span className="t-base fw-7 ink-1" style={{ display: 'block', lineHeight: 1.2 }}>{u.name}</span>
+          <span className="t-xs ink-3">{u.role}</span>
         </span>
         <ChevronDown size={14} className="hide-mobile" style={{ color: 'var(--text-3)' }} />
       </button>
       {open && (
         <div className="header-pop" style={{ width: 260 }}>
           <div className="flex items-center gap-3" style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
-            <Avatar name={CURRENT_USER.name} hue={0} size="lg" />
+            <Avatar name={u.name} hue={0} size="lg" />
             <div style={{ minWidth: 0 }}>
-              <div className="fw-7 t-md truncate">{CURRENT_USER.name}</div>
-              <div className="t-sm ink-3 truncate">{CURRENT_USER.email}</div>
-              <Badge tone="primary">{CURRENT_USER.role}</Badge>
+              <div className="fw-7 t-md truncate">{u.name}</div>
+              <div className="t-sm ink-3 truncate">{u.email}</div>
+              <Badge tone="primary">{u.role}</Badge>
             </div>
           </div>
           <div style={{ padding: 6 }}>

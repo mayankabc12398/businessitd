@@ -6,12 +6,14 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Badge, Chip, Skeleton, ProgressBar } from '../../components/ui';
 import { fmtINR } from '../../utils/format';
-import { APPLICABLE_SEGMENTS, featureAdoption } from '../../data/revenue';
+import { APPLICABLE_SEGMENTS } from '../../data/revenue';
 import { StatusChip } from './_shared';
 
 export default function Reusable() {
   const navigate = useNavigate();
   const { data: rows, loading } = useApi(() => api.getFeatures());
+  const { data: adoption } = useApi(() => api.getClientAdoption());
+  const featureAdoption = (id) => (adoption || []).filter((x) => x.featureId === id || x.featureCode === id);
   const [segment, setSegment] = useState('All');
 
   const reusable = useMemo(() => (rows || []).filter((f) => f.reusable), [rows]);

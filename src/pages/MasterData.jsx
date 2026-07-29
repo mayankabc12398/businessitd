@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Chip, FormDrawer, useToast } from '../components/ui';
 import { fmtNum } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 
 const MASTER_NAMES = ['Doctors / Consultants', 'Services & Tariff', 'Pharmacy Items', 'Lab Tests & Panels', 'Radiology Procedures', 'Departments & Wards', 'Bed Master', 'Insurance / TPA Panels', 'Diagnosis (ICD)', 'Suppliers & Vendors', 'Package Master', 'User & Role Master', 'Ledger / Chart of Accounts', 'Diet Master', 'Referral Doctors'];
 
@@ -34,6 +33,7 @@ const StepCell = ({ done, at }) => (
 export default function MasterData() {
   const { data: rows, loading } = useApi(() => api.getMasterData());
   const { data: kpis } = useApi(() => api.getMasterDataKpis());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [proj, setProj] = useState('All');
   const [statusF, setStatusF] = useState('All');
@@ -46,7 +46,7 @@ export default function MasterData() {
   const filtered = useMemo(() => allRows.filter((r) => (proj === 'All' || r.projectName === proj) && (statusF === 'All' || r.status.startsWith(statusF))), [allRows, proj, statusF]);
 
   const addMaster = (v, imported) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const records = imported ? (Number(v.records) || 0) : 0;
     setExtra((prev) => [{
       id: `MD-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
@@ -98,7 +98,7 @@ export default function MasterData() {
       <FormDrawer open={showReq} onClose={() => setShowReq(false)} title="Request Master from Client" subtitle="Track a master data collection request"
         submitLabel="Request Master" onSubmit={(v) => addMaster(v, false)}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'requestedDate', label: 'Requested Date', type: 'date' },
           { name: 'importDate', label: 'Import Date', type: 'date' },
           { name: 'type', label: 'Type', type: 'select', options: ['Onsite', 'Offsite', 'Online'], placeholder: 'Select type…' },
@@ -110,7 +110,7 @@ export default function MasterData() {
         submitLabel="Import" submitIcon={<Upload size={14} />} onSubmit={(v) => addMaster(v, true)}
         intro="Upload the client's filled Excel template. On import the records are validated and counted."
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'master', label: 'Master', type: 'select', required: true, options: MASTER_NAMES },
           { name: 'records', label: 'Records', type: 'number', required: true, placeholder: '0' },
           { name: 'owner', label: 'Imported By', placeholder: 'Consultant name' },

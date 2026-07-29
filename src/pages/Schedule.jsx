@@ -11,10 +11,11 @@ import {
   Drawer, DetailRow, FormDrawer, ConfirmDialog, useToast,
 } from '../components/ui';
 import { fmtDate } from '../utils/format';
+import { api } from '../services/api';
+import { useApi } from '../hooks/useApi';
 import {
   SCHEDULE_PHASES, SCHEDULE_CLINICS, SCHEDULE_STATUSES, SCHEDULE_MODES,
 } from '../data/schedule';
-import { PROJECTS } from '../data/projects';
 import { HIMS_MODULES } from '../data/masters';
 import { getActivities, setActivities, subscribeActivities } from '../data/activitiesStore';
 
@@ -27,6 +28,7 @@ const EMPTY = [];
 
 export default function Schedule() {
   const toast = useToast();
+  const { data: projects } = useApi(() => api.getProjects());
 
   // shared store — Activity Schedule CRUD is the single source of truth,
   // also read by the Kick-off modal (per project)
@@ -78,7 +80,7 @@ export default function Schedule() {
     startDate: v.startDate || null, endDate: v.endDate || null,
     actualStart: v.actualStart || null, actualEnd: v.actualEnd || null,
     projectCode: v.projectCode || null,
-    projectName: v.projectCode ? (PROJECTS.find((x) => x.code === v.projectCode)?.name.split(' — ')[0] || '') : '',
+    projectName: v.projectCode ? ((projects || []).find((x) => x.code === v.projectCode)?.name.split(' — ')[0] || '') : '',
   });
 
   const submitForm = (v) => {
@@ -125,7 +127,7 @@ export default function Schedule() {
 
   const formFields = [
     { name: 'activity', label: 'Activity Schedule', required: true, full: true, placeholder: 'e.g. Training & UAT of Phase-1 Modules' },
-    { name: 'projectCode', label: 'Project / Client', type: 'search', full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })), help: 'Link this activity to a project — it appears in that project’s kick-off view' },
+    { name: 'projectCode', label: 'Project / Client', type: 'search', full: true, options: (projects || []).map((p) => ({ value: p.code, label: p.name })), help: 'Link this activity to a project — it appears in that project’s kick-off view' },
     { name: 'group', label: 'Module Group', type: 'select', required: true, default: GROUPS[0], options: GROUPS },
     { name: 'phase', label: 'Phase', type: 'select', required: true, default: '1', options: SCHEDULE_PHASES.map((p) => ({ value: p, label: `Phase ${p}` })) },
     { name: 'clinic', label: 'Hospital Name', type: 'select', required: true, default: SCHEDULE_CLINICS[0], options: SCHEDULE_CLINICS },

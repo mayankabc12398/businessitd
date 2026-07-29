@@ -5,11 +5,11 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
-import { INTEGRATIONS } from '../../data/integration';
 import { INT_STATUS_TONE } from './_shared';
 
 export default function Testing() {
   const { data: rows, loading } = useApi(() => api.getTestCases());
+  const { data: integrations } = useApi(() => api.getIntegrations());
   const toast = useToast();
   const [result, setResult] = useState('All');
   const [show, setShow] = useState(false);
@@ -21,7 +21,7 @@ export default function Testing() {
   const bugsOpen = allRows.reduce((s, r) => s + (r.bugFound - r.bugFixed), 0);
 
   const addTest = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     setExtra((prev) => [{
       id: `TC-${String(allRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       testCase: v.testCase, apiTested: v.apiTested || '', tester: v.tester || '—', testDate: v.testDate || '2026-07-27',
@@ -62,7 +62,7 @@ export default function Testing() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Log Test Case" subtitle="Record a test execution (Module 10)"
         submitLabel="Save Test" onSubmit={addTest}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'testCase', label: 'Test Case', required: true, full: true, placeholder: 'e.g. Successful STK push & callback' },
           { name: 'apiTested', label: 'API Tested', placeholder: 'STK Push' },
           { name: 'tester', label: 'Tester', placeholder: 'Name' },

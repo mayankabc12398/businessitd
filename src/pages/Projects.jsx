@@ -21,9 +21,6 @@ import {
 } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { LIFECYCLE, PROJECT_STATUS, PRIORITIES, HEALTH, IMPLEMENTATION_TYPES, INTEGRATION_TYPES, HIMS_MODULES, HOSPITAL_TYPES, COUNTRIES } from '../data/masters';
-import { CLIENTS, findClient } from '../data/clients';
-import { PROJECTS } from '../data/projects';
-import { TEAM, findUser } from '../data/team';
 
 const money = (n, cur = 'INR') => {
   if (n == null) return '—';
@@ -48,6 +45,9 @@ export default function Projects({ initialTab = 'projects' }) {
   const { data: projects, loading: pLoading } = useApi(() => api.getProjects());
   const { data: kpis } = useApi(() => api.getProjectKpis());
   const { data: clients, loading: cLoading } = useApi(() => api.getClients());
+  const { data: team } = useApi(() => api.getTeam());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const findUser = (id) => (team || []).find((u) => u.id === id);
   const toast = useToast();
   const [params, setParams] = useSearchParams();
 
@@ -178,7 +178,7 @@ export default function Projects({ initialTab = 'projects' }) {
     { key: 'loc', header: 'Location', render: (c) => <span className="t-sm"><MapPin size={12} style={{ verticalAlign: -1 }} /> {c.city}, {c.country}</span> },
     { key: 'beds', header: 'Beds', align: 'right', accessor: (c) => c.beds, render: (c) => <b className="tabular">{c.beds || '—'}</b> },
     { key: 'branches', header: 'Branches', align: 'right', accessor: (c) => c.branches },
-    { key: 'proj', header: 'Projects', align: 'center', accessor: (c) => PROJECTS.filter((p) => p.clientId === c.id).length, render: (c) => <Badge tone="primary">{PROJECTS.filter((p) => p.clientId === c.id).length}</Badge> },
+    { key: 'proj', header: 'Projects', align: 'center', accessor: (c) => (projects || []).filter((p) => p.clientId === c.id).length, render: (c) => <Badge tone="primary">{(projects || []).filter((p) => p.clientId === c.id).length}</Badge> },
     { key: 'health', header: 'Health', render: (c) => <StatusBadge status={c.health} tone={healthTone(c.health)} /> },
   ];
 
@@ -284,6 +284,8 @@ export default function Projects({ initialTab = 'projects' }) {
 
 // ---------------- Kanban board ----------------
 function Board({ projects, loading, onOpen }) {
+  const { data: team } = useApi(() => api.getTeam());
+  const findUser = (id) => (team || []).find((u) => u.id === id);
   if (loading) return <div className="card card-pad"><Skeleton h={320} /></div>;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(220px, 1fr))', gap: 14, overflowX: 'auto', paddingBottom: 6 }}>
@@ -322,6 +324,10 @@ function Board({ projects, loading, onOpen }) {
 // ---------------- Project detail drawer ----------------
 function ProjectDrawer({ project, onClose }) {
   const [tab, setTab] = useState('overview');
+  const { data: clients } = useApi(() => api.getClients());
+  const { data: team } = useApi(() => api.getTeam());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const findUser = (id) => (team || []).find((u) => u.id === id);
   useEffect(() => { if (project) setTab('overview'); }, [project]);
   if (!project) return null;
   const p = project;
@@ -484,7 +490,11 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
   const [newClient, setNewClient] = useState(false);
   const [machineForm, setMachineForm] = useState(false);
   const [intForm, setIntForm] = useState(false);
-  const [, bump] = useState(0); // force re-render after CLIENTS mutation
+  const { data: fetchedClients } = useApi(() => api.getClients());
+  const { data: team } = useApi(() => api.getTeam());
+  const [extraClients, setExtraClients] = useState([]); // client-side clients added via "Create Client"
+  const clients = [...extraClients, ...(fetchedClients || [])];
+  const findClient = (id) => clients.find((c) => c.id === id || c.code === id);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const addModule = (raw) => {
     const v = (raw || '').trim();
@@ -494,14 +504,13 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
   };
   const addClient = (v) => {
     const c = {
-      id: `CL-N${CLIENTS.length + 1}`, name: v.name.trim(), group: v.group || v.name.trim(),
+      id: `CL-N${clients.length + 1}`, name: v.name.trim(), group: v.group || v.name.trim(),
       type: v.type || 'Multi-Specialty', country: v.country || 'India', city: v.city || '', beds: v.beds ? Number(v.beds) : 0,
       contacts: v.spoc ? [{ name: v.spoc, title: 'Client SPOC', primary: true }] : [], escalation: [],
     };
-    CLIENTS.unshift(c);
+    setExtraClients((prev) => [c, ...prev]);
     set('clientId', c.id);
     setNewClient(false);
-    bump((n) => n + 1);
   };
   const addMachine = (v) => {
     setF((s) => {
@@ -541,7 +550,7 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
           </div>
           <Field label="Initial Status"><Select value={f.status} onChange={(e) => set('status', e.target.value)} options={PROJECT_STATUS} /></Field>
 
-          <Field label="Client / Hospital" required help="Pick an existing client or create a new one below"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={CLIENTS.map((c) => ({ value: c.id, label: `${c.name}${c.city ? ` — ${c.city}` : ''}` }))} placeholder="Search hospitals…" /></Field>
+          <Field label="Client / Hospital" required help="Pick an existing client or create a new one below"><SearchSelect value={f.clientId} onChange={(v) => set('clientId', v)} options={clients.map((c) => ({ value: c.id, label: `${c.name}${c.city ? ` — ${c.city}` : ''}` }))} placeholder="Search hospitals…" /></Field>
           <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setNewClient(true)}><Plus size={14} /> Create Client / Hospital</button>
           {f.clientId && (() => { const c = findClient(f.clientId); return c ? (
             <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
@@ -584,8 +593,8 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
       {step === 2 && (
         <div className="flex-col gap-3">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={TEAM.filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
-            <Field label="Functional Consultant"><SearchSelect value={f.fc} onChange={(v) => set('fc', v)} options={TEAM.filter((t) => t.roleId === 'fc').map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a consultant…" /></Field>
+            <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={(team || []).filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
+            <Field label="Functional Consultant"><SearchSelect value={f.fc} onChange={(v) => set('fc', v)} options={(team || []).filter((t) => t.roleId === 'fc').map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a consultant…" /></Field>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Number of Machines"><Input type="number" min="0" value={f.machines} onChange={(e) => set('machines', e.target.value)} placeholder="0" /></Field>
@@ -718,9 +727,10 @@ function FileField({ label, icon, value, onChange }) {
 
 // ---------------- Client detail drawer ----------------
 function ClientDrawer({ client, onClose, onNewProject }) {
+  const { data: projectList } = useApi(() => api.getProjects());
   if (!client) return null;
   const c = client;
-  const projects = PROJECTS.filter((p) => p.clientId === c.id);
+  const projects = (projectList || []).filter((p) => p.clientId === c.id);
   return (
     <Drawer open={!!client} onClose={onClose} size="md" title={c.name} subtitle={`${c.group} · ${c.type}`}
       headerExtra={<Badge tone={healthTone(c.health)}>{c.health}</Badge>}

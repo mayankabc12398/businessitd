@@ -6,12 +6,13 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
-import { INTEGRATIONS, DOC_TYPES } from '../../data/integration';
+import { DOC_TYPES } from '../../data/integration';
 
 const DOC_TONE = { 'API PDF': 'rose', Swagger: 'green', BRD: 'blue', SRS: 'cyan', MOM: 'lavender', 'Postman Collection': 'peach', 'Excel Mapping': 'mint', 'SQL Script': 'lemon', Image: 'indigo' };
 
 export default function Documents() {
   const { data: rows, loading } = useApi(() => api.getIntegrationDocuments());
+  const { data: integrations } = useApi(() => api.getIntegrations());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [type, setType] = useState('All');
@@ -28,7 +29,7 @@ export default function Documents() {
   }, [params]);
 
   const addDoc = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     setExtra((prev) => [{
       id: `DOC-${String(allRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       name: v.name, type: v.type, size: v.size || '—', uploadedBy: v.uploadedBy || 'Devendra Singh', uploadedOn: '2026-07-27',
@@ -68,7 +69,7 @@ export default function Documents() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Upload Document" subtitle="Attach a document to an integration (Module 11)"
         submitLabel="Upload" submitIcon={<UploadCloud size={14} />} onSubmit={addDoc}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'name', label: 'Document Name', required: true, full: true, placeholder: 'e.g. Daraja API Reference.pdf' },
           { name: 'type', label: 'Type', type: 'select', required: true, options: DOC_TYPES },
           { name: 'size', label: 'Size', placeholder: 'e.g. 2.4 MB' },

@@ -5,12 +5,14 @@ import { Braces, Plus, Lock, Globe, FlaskConical, Eye } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Select, Drawer, DetailRow, FormDrawer, useToast } from '../../components/ui';
-import { INTEGRATIONS, HTTP_METHODS, AUTH_TYPES, PAYLOADS } from '../../data/integration';
+import { HTTP_METHODS, AUTH_TYPES } from '../../data/integration';
 import { getUserApis, addUserApi, subscribeUserApis } from '../../data/userApis';
 import { INT_STATUS_TONE, MethodBadge, CodeBlock } from './_shared';
 
 export default function ApiCatalogue() {
   const { data: rows, loading } = useApi(() => api.getApis());
+  const { data: integrations } = useApi(() => api.getIntegrations());
+  const { data: payloads } = useApi(() => api.getPayloads());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [method, setMethod] = useState('All');
@@ -34,7 +36,7 @@ export default function ApiCatalogue() {
   }, [params]);
 
   const addApi = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     addUserApi({
       id: `API-${2000 + allRows.length}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       name: v.name, purpose: v.purpose || '', method: v.method, url: v.url, sandboxUrl: v.sandboxUrl || '', liveUrl: v.liveUrl || '',
@@ -99,7 +101,7 @@ export default function ApiCatalogue() {
               </div>
             </div>
             {(() => {
-              const pay = PAYLOADS.find((p) => p.apiId === detail.id);
+              const pay = (payloads || []).find((p) => p.apiId === detail.id);
               const request = detail.requestPayload || pay?.request;
               const success = detail.successResponse || pay?.response;
               const error = detail.errorResponse || pay?.errors;
@@ -120,7 +122,7 @@ export default function ApiCatalogue() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add API" subtitle="Document an API endpoint (Module 3)"
         submitLabel="Save API" onSubmit={addApi}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'name', label: 'API Name', required: true, placeholder: 'e.g. STK Push' },
           { name: 'method', label: 'HTTP Method', type: 'select', required: true, default: 'POST', options: HTTP_METHODS },
           { name: 'purpose', label: 'Purpose', full: true, placeholder: 'What this API does' },

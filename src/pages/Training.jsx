@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, Field, Input, Select, SearchSelect, SwitchField, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { HOSPITAL_DEPTS, TRAINING_TYPES } from '../data/masters';
 
 const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`);
@@ -23,6 +22,7 @@ const calcDuration = (from, to) => {
 export default function Training() {
   const { data: rows, loading } = useApi(() => api.getTraining());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [proj, setProj] = useState('All');
   const [show, setShow] = useState(false);
@@ -63,7 +63,7 @@ export default function Training() {
   };
 
   const addTraining = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const name = p ? p.name.split(' — ')[0] : v.projectCode;
     setExtra((prev) => [{
       id: `TRN-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: name,
@@ -178,7 +178,7 @@ export default function Training() {
         )}
       </Drawer>
 
-      <ScheduleTraining open={show} onClose={() => setShow(false)} onSchedule={addTraining} />
+      <ScheduleTraining open={show} onClose={() => setShow(false)} onSchedule={addTraining} projects={projects} />
     </div>
   );
 }
@@ -256,7 +256,7 @@ function TrainingDocs({ docs, signed, onUpload, onRemove }) {
 // ---- Schedule Training drawer — from/to time with auto-calculated duration + invite mail ----
 const TRAINERS = ['Ananya Iyer', 'Neha Patel', 'Amit Verma'];
 
-function ScheduleTraining({ open, onClose, onSchedule }) {
+function ScheduleTraining({ open, onClose, onSchedule, projects }) {
   const [projectCode, setProjectCode] = useState('');
   const [dept, setDept] = useState('');
   const [type, setType] = useState('Classroom');
@@ -273,7 +273,7 @@ function ScheduleTraining({ open, onClose, onSchedule }) {
     if (open) { setProjectCode(''); setDept(''); setType('Classroom'); setTrainer(TRAINERS[0]); setCoordinator(''); setDate(''); setFromTime(''); setToTime(''); setAttendees(''); setSendMail(true); }
   }, [open]);
 
-  const projOptions = useMemo(() => PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })), []);
+  const projOptions = useMemo(() => (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })), [projects]);
   const duration = calcDuration(fromTime, toTime);
   const timeError = fromTime && toTime && duration === 0;
   const valid = projectCode && dept && date && fromTime && toTime && duration > 0;

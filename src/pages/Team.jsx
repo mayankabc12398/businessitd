@@ -5,19 +5,19 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, Tabs, Badge, Avatar, ProgressBar, DataTable, Skeleton, FormDrawer, useToast } from '../components/ui';
 import { ROLES } from '../data/team';
-import { PROJECTS } from '../data/projects';
 
 const utilTone = (u) => u >= 90 ? 'danger' : u >= 75 ? 'warning' : 'success';
 
 export default function Team() {
   const { data: team, loading } = useApi(() => api.getTeam());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [tab, setTab] = useState('people');
   const [show, setShow] = useState(false);
   const [extra, setExtra] = useState([]);
 
   const allTeam = [...extra, ...(team || [])];
-  const projectsFor = (id) => PROJECTS.filter((p) => [p.pm, p.fc, p.tc, p.engineer, p.support].includes(id)).length;
+  const projectsFor = (id) => (projects || []).filter((p) => [p.pm, p.fc, p.tc, p.engineer, p.support].includes(id)).length;
 
   const addMember = (v) => {
     const roleId = ROLES.find((r) => r.label === v.role)?.id || 'fc';

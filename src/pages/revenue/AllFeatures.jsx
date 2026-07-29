@@ -16,8 +16,7 @@ import {
 import { fmtINR, fmtDate, fmtNum } from '../../utils/format';
 import {
   FEATURE_MODULES, FEATURE_CATEGORIES, FEATURE_STATUSES, PRIORITIES, WORKFLOW_STEPS,
-  BUSINESS_ANALYSIS, TECHNICAL_ANALYSIS, FEATURE_WORKFLOWS, DEV_DETAILS, IMPACT,
-  STATUS_STAGE, featureScreens, featureTests, featureAdoption,
+  STATUS_STAGE,
 } from '../../data/revenue';
 import { StatusChip, PRIO_TONE, ImpactBar, ADOPT_TONE, UAT_TONE } from './_shared';
 
@@ -25,14 +24,23 @@ function FeatureDetail({ feature: f, onClose, onAdvance }) {
   const [tab, setTab] = useState('overview');
   const [form, setForm] = useState(null); // 'ba' | 'ta' | 'dev'
   const toast = useToast();
-  const ba = BUSINESS_ANALYSIS[f.id] || f.ba || null;
-  const ta = TECHNICAL_ANALYSIS[f.id] || f.ta || null;
-  const wf = FEATURE_WORKFLOWS[f.id];
-  const dev = DEV_DETAILS[f.id] || f.dev || null;
-  const impact = IMPACT[f.id];
-  const screens = featureScreens(f.id);
-  const tests = featureTests(f.id);
-  const adoption = featureAdoption(f.id);
+  const { data: baList } = useApi(() => api.getBusinessAnalysis());
+  const { data: taList } = useApi(() => api.getTechnicalAnalysis());
+  const { data: wfList } = useApi(() => api.getFeatureWorkflows());
+  const { data: devList } = useApi(() => api.getDevDetails());
+  const { data: impactList } = useApi(() => api.getFeatureImpact());
+  const { data: screenList } = useApi(() => api.getScreenChanges());
+  const { data: testList } = useApi(() => api.getFeatureTests());
+  const { data: adoptionList } = useApi(() => api.getClientAdoption());
+  const belongs = (x) => x.featureId === f.id || x.featureCode === f.id;
+  const ba = (baList || []).find(belongs) || f.ba || null;
+  const ta = (taList || []).find(belongs) || f.ta || null;
+  const wf = (wfList || []).find(belongs) || null;
+  const dev = (devList || []).find(belongs) || f.dev || null;
+  const impact = (impactList || []).find(belongs) || null;
+  const screens = (screenList || []).filter(belongs);
+  const tests = (testList || []).filter(belongs);
+  const adoption = (adoptionList || []).filter(belongs);
   const stage = STATUS_STAGE[f.status] || 1;
 
   const tabs = [

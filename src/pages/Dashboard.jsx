@@ -11,9 +11,6 @@ import {
   MetricCard, Avatar, Badge, Skeleton, LineChart, BarChart, DonutChart,
   HBarList, Timeline, ProgressBar,
 } from '../components/ui';
-import { CURRENT_USER } from '../data/team';
-import { PROJECTS } from '../data/projects';
-import { findClient } from '../data/clients';
 import { LIFECYCLE } from '../data/masters';
 import { fmtDate } from '../utils/format';
 
@@ -23,6 +20,10 @@ const UPCOMING_TINT = { golive: 'green', meeting: 'blue', uat: 'lavender', train
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: currentUser } = useApi(() => api.getCurrentUser());
+  const { data: projects } = useApi(() => api.getProjects());
+  const { data: clients } = useApi(() => api.getClients());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
   const { data: kpis } = useApi(() => api.getProjectKpis());
   const { data: gov } = useApi(() => api.getGovernanceKpis());
   const { data: md } = useApi(() => api.getMasterDataKpis());
@@ -37,18 +38,18 @@ export default function Dashboard() {
   const { data: activity } = useApi(() => api.getActivityFeed());
   const { data: upcoming } = useApi(() => api.getUpcoming());
 
-  const attention = PROJECTS.filter((p) => p.health === 'At Risk' || p.health === 'Delayed');
-  const goLives = PROJECTS.filter((p) => p.status !== 'Completed').sort((a, b) => a.targetGoLive.localeCompare(b.targetGoLive)).slice(0, 5);
+  const attention = (projects || []).filter((p) => p.health === 'At Risk' || p.health === 'Delayed');
+  const goLives = (projects || []).filter((p) => p.status !== 'Completed').sort((a, b) => a.targetGoLive.localeCompare(b.targetGoLive)).slice(0, 5);
 
   return (
     <div className="page">
       {/* Hero */}
       <div className="card card-pad anim-fade-up hero-banner" style={{ background: 'linear-gradient(120deg, #eef1ff 0%, #e8f4fd 45%, #eafaf2 100%)', border: '1px solid #dfe6f7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div className="flex items-center gap-4">
-          <Avatar name={CURRENT_USER.name} hue={0} size="xl" ring />
+          <Avatar name={currentUser?.name} hue={0} size="xl" ring />
           <div>
             <div className="t-sm fw-6" style={{ color: 'var(--primary-700)' }}>Friday, 24 July 2026</div>
-            <h1 className="t-2xl fw-8" style={{ letterSpacing: '-0.03em' }}>Good morning, {CURRENT_USER.firstName} 👋</h1>
+            <h1 className="t-2xl fw-8" style={{ letterSpacing: '-0.03em' }}>Good morning, {currentUser?.firstName || (currentUser?.name || '').split(' ')[0]} 👋</h1>
             <p className="t-base ink-2 mt-1">You have <b>{kpis?.atRisk ?? '—'} projects</b> needing attention, <b>{gov?.signoffsPending ?? '—'} sign-offs</b> pending, and <b>2 go-lives</b> in the next 30 days.</p>
           </div>
         </div>
@@ -97,7 +98,7 @@ export default function Dashboard() {
         <div className="card card-pad anim-fade-up">
           <div className="card-title mb-1">Portfolio Health</div>
           <div className="card-sub mb-4">By project status</div>
-          {health ? <DonutChart data={health} centerLabel="PROJECTS" centerValue={PROJECTS.length} /> : <Skeleton h={200} />}
+          {health ? <DonutChart data={health} centerLabel="PROJECTS" centerValue={(projects || []).length} /> : <Skeleton h={200} />}
           <div className="mt-4" style={{ borderTop: '1px dashed var(--border)', paddingTop: 14 }}>
             <div className="flex items-center justify-between"><span className="t-sm ink-2 fw-5">On-time delivery (12m)</span><span className="t-md fw-8" style={{ color: 'var(--success-ink)' }}>88%</span></div>
             <div className="t-xs ink-3 mt-1">Industry HIMS benchmark: 72% — you're 16 pts ahead.</div>

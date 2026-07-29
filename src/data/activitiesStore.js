@@ -1,18 +1,20 @@
 // Shared Activity Schedule store — one source of truth for activities so the
 // Activity Schedule page (CRUD) and the Kick-off modal (read, per project) stay
-// in sync within a session and across HashRouter navigation.
-import { ACTIVITY_SCHEDULE } from './schedule';
+// in sync within a session. Seeded from the businessAPI Activities endpoint
+// (no hardcoded data); setActivities keeps optimistic session state.
+import { api } from '../services/api';
 
-const KEY = 'pmo-activities';
-const seed = () => ACTIVITY_SCHEDULE.map((a) => ({ ...a }));
-const read = () => { try { const s = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(s) ? s : null; } catch { return null; } };
-
-let cache = read() || seed();
+let cache = [];
 const listeners = new Set();
-const emit = () => {
-  try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch { /* ignore quota */ }
-  listeners.forEach((fn) => fn(cache));
+const emit = () => listeners.forEach((fn) => fn(cache));
+
+// Seed from the API (fire-and-forget on import); widgets re-render via subscribe.
+export const loadActivities = async () => {
+  try { cache = await api.getActivitySchedule(); } catch { cache = []; }
+  emit();
+  return cache;
 };
+loadActivities();
 
 export const getActivities = () => cache;
 export const setActivities = (updater) => { cache = typeof updater === 'function' ? updater(cache) : updater; emit(); };

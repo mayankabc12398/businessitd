@@ -12,20 +12,23 @@ import {
   Drawer, Tabs, DetailRow, Timeline, EmptyState,
 } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
-import {
-  INTEGRATION_TYPES, INTEGRATION_STATUS, WORKFLOW_STEPS, PROCESS_FLOWS,
-  integrationApis, integrationClients, integrationVersions, integrationDocs, integrationHimsChanges,
-} from '../../data/integration';
+import { INTEGRATION_TYPES, INTEGRATION_STATUS, WORKFLOW_STEPS } from '../../data/integration';
 import { INT_STATUS_TONE, MethodBadge } from './_shared';
 
 function IntegrationDetail({ integration: it, onClose }) {
   const [tab, setTab] = useState('overview');
-  const apis = integrationApis(it.id);
-  const clients = integrationClients(it.id);
-  const versions = integrationVersions(it.id);
-  const docs = integrationDocs(it.id);
-  const changes = integrationHimsChanges(it.id);
-  const flow = PROCESS_FLOWS[it.id];
+  const { data: apiList } = useApi(() => api.getApis());
+  const { data: clientList } = useApi(() => api.getClientImplementations());
+  const { data: versionList } = useApi(() => api.getVersionHistory());
+  const { data: docList } = useApi(() => api.getIntegrationDocuments());
+  const { data: himsList } = useApi(() => api.getHimsChanges());
+  const { data: flowList } = useApi(() => api.getProcessFlows());
+  const apis = (apiList || []).filter((a) => a.integrationId === it.id || a.integrationCode === it.id);
+  const clients = (clientList || []).filter((c) => c.integrationId === it.id || c.integrationCode === it.id);
+  const versions = (versionList || []).filter((v) => v.integrationId === it.id || v.integrationCode === it.id);
+  const docs = (docList || []).filter((d) => d.integrationId === it.id || d.integrationCode === it.id);
+  const changes = (himsList || []).filter((h) => h.integrationId === it.id || h.integrationCode === it.id);
+  const flow = (flowList || []).find((f) => f.integrationId === it.id || f.integrationCode === it.id);
 
   const tabs = [
     { key: 'overview', label: 'Overview' },
@@ -180,6 +183,8 @@ function IntegrationDetail({ integration: it, onClose }) {
 export default function AllIntegrations() {
   const { data: rows, loading } = useApi(() => api.getIntegrations());
   const { data: kpis } = useApi(() => api.getSirKpis());
+  const { data: clientList } = useApi(() => api.getClientImplementations());
+  const clientsFor = (id) => (clientList || []).filter((c) => c.integrationId === id || c.integrationCode === id);
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [type, setType] = useState('All');
@@ -218,7 +223,7 @@ export default function AllIntegrations() {
     { key: 'type', header: 'Type', render: (r) => <Badge tone="info">{r.type}</Badge> },
     { key: 'vendor', header: 'Vendor / Partner' },
     { key: 'totalApis', header: 'Total APIs', align: 'right', accessor: (r) => r.totalApis },
-    { key: 'clients', header: 'Clients', align: 'right', accessor: (r) => integrationClients(r.id).length, render: (r) => integrationClients(r.id).length },
+    { key: 'clients', header: 'Clients', align: 'right', accessor: (r) => clientsFor(r.id).length, render: (r) => clientsFor(r.id).length },
     { key: 'lastUpdated', header: 'Last Updated', nowrap: true, accessor: (r) => r.lastUpdated, render: (r) => fmtDate(r.lastUpdated) },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} tone={INT_STATUS_TONE[r.status]} /> },
     { key: 'action', header: 'Action', sortable: false, align: 'center', render: (r) => <button className="btn btn-outline btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); setDetail(r); }} title="View details"><Eye size={14} /></button> },

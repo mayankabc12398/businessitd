@@ -14,13 +14,13 @@ import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Tabs, Modal, Badge, Chip, Dropdown, Field, Input, Select, Textarea, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { SIGNOFF_MILESTONES, DOC_CATEGORIES } from '../data/masters';
-import { PROJECTS } from '../data/projects';
 
 const extIcon = (ext) => ext === 'xlsx' ? <FileSpreadsheet size={16} color="var(--success)" /> : ext === 'docx' ? <FileText size={16} color="var(--info)" /> : <File size={16} color="var(--danger)" />;
 const fmtSize = (kb) => kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
 
 export default function SignoffDocs() {
   const toast = useToast();
+  const { data: projects } = useApi(() => api.getProjects());
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState('signoff');
 
@@ -52,7 +52,7 @@ export default function SignoffDocs() {
   const totalSize = allDocs.reduce((s, r) => s + r.sizeKB, 0);
 
   const addDoc = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const ext = (v.name.includes('.') ? v.name.split('.').pop() : 'pdf').toLowerCase();
     setExtra((prev) => [{
       id: `DOC-${String(allDocs.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
@@ -132,13 +132,13 @@ export default function SignoffDocs() {
         </>
       )}
 
-      <RecordSignoffModal open={showSignoff} onClose={() => setShowSignoff(false)} onSaved={(m) => { toast.success('Sign-off recorded', m); setShowSignoff(false); }} />
+      <RecordSignoffModal open={showSignoff} onClose={() => setShowSignoff(false)} projects={projects} onSaved={(m) => { toast.success('Sign-off recorded', m); setShowSignoff(false); }} />
 
       <FormDrawer open={showUpload} onClose={() => setShowUpload(false)} title="Upload Document" subtitle="Add a project document to the repository"
         submitLabel="Upload" submitIcon={<Upload size={14} />} onSubmit={addDoc}
         intro="Drag & drop a file or fill the details below. Documents are versioned automatically."
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).map((p) => ({ value: p.code, label: p.name })) },
           { name: 'name', label: 'File Name', required: true, full: true, placeholder: 'e.g. SRS_OPD_v2.docx' },
           { name: 'category', label: 'Category', type: 'select', required: true, options: DOC_CATEGORIES },
           { name: 'version', label: 'Version', placeholder: 'v1.0' },
@@ -149,14 +149,14 @@ export default function SignoffDocs() {
   );
 }
 
-function RecordSignoffModal({ open, onClose, onSaved }) {
+function RecordSignoffModal({ open, onClose, onSaved, projects }) {
   const [f, setF] = useState({ project: '', milestone: '', signedBy: '', designation: '', method: 'Digital Signature', remarks: '' });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   return (
     <Modal open={open} onClose={onClose} title="Record Milestone Sign-off" subtitle="Capture a digital sign-off from the client"
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.milestone || !f.signedBy} onClick={() => onSaved(f.milestone)}><CheckCircle2 size={14} /> Record Sign-off</button></>}>
       <div className="flex-col gap-3">
-        <Field label="Project" required><Select value={f.project} onChange={(e) => set('project', e.target.value)} options={PROJECTS.map((p) => ({ value: p.code, label: p.name }))} placeholder="Select project…" /></Field>
+        <Field label="Project" required><Select value={f.project} onChange={(e) => set('project', e.target.value)} options={(projects || []).map((p) => ({ value: p.code, label: p.name }))} placeholder="Select project…" /></Field>
         <Field label="Milestone" required><Select value={f.milestone} onChange={(e) => set('milestone', e.target.value)} options={SIGNOFF_MILESTONES} placeholder="Select milestone…" /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Signed By" required><Input value={f.signedBy} onChange={(e) => set('signedBy', e.target.value)} placeholder="Client authorised name" /></Field>

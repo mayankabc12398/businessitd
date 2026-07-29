@@ -5,7 +5,6 @@ import { Database, Plus, Code2, TableProperties } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, Tabs, FormDrawer, useToast } from '../../components/ui';
-import { INTEGRATIONS, APIS } from '../../data/integration';
 import { getUserApis, subscribeUserApis } from '../../data/userApis';
 import { HOSPITAL_DEPTS } from '../../data/masters';
 import { CodeBlock } from './_shared';
@@ -13,6 +12,8 @@ import { CodeBlock } from './_shared';
 export default function HimsChanges() {
   const { data: hims, loading: l1 } = useApi(() => api.getHimsChanges());
   const { data: db, loading: l2 } = useApi(() => api.getDbChanges());
+  const { data: integrations } = useApi(() => api.getIntegrations());
+  const { data: apis } = useApi(() => api.getApis());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState('screens');
@@ -27,7 +28,7 @@ export default function HimsChanges() {
   // API dropdown options — every API documented in the API Catalogue (seeded + user-added)
   const [userApis, setUserApis] = useState(getUserApis);
   useEffect(() => subscribeUserApis(setUserApis), []);
-  const apiOptions = useMemo(() => Array.from(new Set([...APIS, ...userApis].map((a) => a.name))).map((n) => ({ value: n, label: n })), [userApis]);
+  const apiOptions = useMemo(() => Array.from(new Set([...(apis || []), ...userApis].map((a) => a.name))).map((n) => ({ value: n, label: n })), [apis, userApis]);
 
   useEffect(() => {
     if (params.get('new') === '1') { setShow(true); params.delete('new'); setParams(params, { replace: true }); }
@@ -35,7 +36,7 @@ export default function HimsChanges() {
   }, [params]);
 
   const addChange = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     setExtra((prev) => [{
       id: `HC-${String(himsRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       module: v.module, screen: v.screen, screenPath: v.screenPath || '', control: v.control || '', button: v.button || '',
@@ -46,7 +47,7 @@ export default function HimsChanges() {
   };
 
   const addDbChange = (v) => {
-    const parent = INTEGRATIONS.find((i) => i.id === v.integrationId);
+    const parent = (integrations || []).find((i) => i.id === v.integrationId);
     setDbExtra((prev) => [{
       id: `DBC-${String(dbRows.length + 1).padStart(2, '0')}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       tableName: v.tableName, newColumns: v.newColumns || '—', newSP: v.newSP || '—', modifiedSP: v.modifiedSP || '—',
@@ -111,7 +112,7 @@ export default function HimsChanges() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Record HIMS Change" subtitle="Document a screen / logic change (Module 5)"
         submitLabel="Save Change" onSubmit={addChange}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'module', label: 'Module', type: 'select', required: true, options: ['Billing', 'Registration', 'Radiology', 'Laboratory', 'Pharmacy', 'IPD', 'OPD', 'Insurance', ...HOSPITAL_DEPTS].filter((v, i, a) => a.indexOf(v) === i) },
           { name: 'screen', label: 'Screen Name', required: true, placeholder: 'e.g. Payment Screen' },
           { name: 'screenPath', label: 'Screen Path', full: true, placeholder: 'Billing > Payments > Collect' },
@@ -127,7 +128,7 @@ export default function HimsChanges() {
       <FormDrawer open={showDb} onClose={() => setShowDb(false)} title="Record Database Change" subtitle="Document a table / SP / trigger change (Module 6)"
         submitLabel="Save Change" onSubmit={addDbChange}
         fields={[
-          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: INTEGRATIONS.map((i) => ({ value: i.id, label: i.name })) },
+          { name: 'integrationId', label: 'Integration', type: 'search', required: true, full: true, options: (integrations || []).map((i) => ({ value: i.id, label: i.name })) },
           { name: 'tableName', label: 'Table Name', required: true, placeholder: 'e.g. PaymentTransaction' },
           { name: 'newColumns', label: 'New Columns', full: true, placeholder: 'CheckoutRequestID, MpesaReceipt, ResultCode' },
           { name: 'newSP', label: 'New Stored Procedures', full: true, placeholder: 'usp_CreateMpesaPayment, usp_HandleMpesaCallback' },

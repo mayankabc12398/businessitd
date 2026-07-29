@@ -6,11 +6,13 @@ import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Badge, Chip, SearchBox, Skeleton, EmptyState } from '../../components/ui';
 import { fmtINR } from '../../utils/format';
-import { FEATURE_CATEGORIES, featureAdoption } from '../../data/revenue';
+import { FEATURE_CATEGORIES } from '../../data/revenue';
 
 export default function FeatureLibrary() {
   const navigate = useNavigate();
   const { data: rows, loading } = useApi(() => api.getFeatureLibrary());
+  const { data: adoption } = useApi(() => api.getClientAdoption());
+  const featureAdoption = (id) => (adoption || []).filter((x) => x.featureId === id || x.featureCode === id);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('All');
 

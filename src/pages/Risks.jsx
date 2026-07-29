@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, Skeleton, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { RISK_TYPES } from '../data/masters';
 
 const levelTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
@@ -13,6 +12,7 @@ const cellColor = (score) => score >= 16 ? 'var(--danger)' : score >= 10 ? 'var(
 
 export default function Risks() {
   const { data: rows, loading } = useApi(() => api.getRisks());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [levelF, setLevelF] = useState('All');
   const [show, setShow] = useState(false);
@@ -31,7 +31,7 @@ export default function Risks() {
   }, [allRows]);
 
   const addRisk = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const prob = Number(v.probability); const impact = Number(v.impact); const score = prob * impact;
     const level = score >= 16 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low';
     setExtra((prev) => [{
@@ -99,7 +99,7 @@ export default function Risks() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add Risk" subtitle="Score a risk on probability × impact"
         submitLabel="Add Risk" onSubmit={addRisk}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'title', label: 'Risk', required: true, full: true, placeholder: 'Describe the risk…' },
           { name: 'category', label: 'Category', type: 'select', required: true, options: RISK_TYPES },
           { name: 'owner', label: 'Owner', type: 'select', required: true, options: ['Rahul Sharma', 'Priya Nair', 'Amit Verma', 'Karthik Rao', 'Sana Qureshi', 'Farhan Shaikh'] },

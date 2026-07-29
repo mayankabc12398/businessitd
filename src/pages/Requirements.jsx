@@ -6,7 +6,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Badge, StatusBadge, Chip, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { HOSPITAL_DEPTS, PRIORITIES } from '../data/masters';
 
 const typeTone = { Standard: 'info', Gap: 'warning', 'Change Request': 'pending' };
@@ -14,6 +13,7 @@ const prioTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'ne
 
 export default function Requirements() {
   const { data: rows, loading } = useApi(() => api.getRequirements());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [typeF, setTypeF] = useState('All');
@@ -33,7 +33,7 @@ export default function Requirements() {
   const approved = allRows.filter((r) => r.status === 'Approved').length;
 
   const addReq = (v) => {
-    const p = PROJECTS.find((x) => x.code === v.projectCode);
+    const p = (projects || []).find((x) => x.code === v.projectCode);
     const name = p ? p.name.split(' — ')[0] : v.projectCode;
     const id = `REQ-${String(allRows.length + 1).padStart(3, '0')}`;
     setExtra((prev) => [{
@@ -85,7 +85,7 @@ export default function Requirements() {
       <FormDrawer open={show} onClose={() => setShow(false)} title="Add Requirement / Change Request" subtitle="Log a requirement, gap or change request"
         submitLabel="Log Requirement" onSubmit={addReq}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'title', label: 'Requirement', required: true, full: true, placeholder: 'Describe the requirement…' },
           { name: 'dept', label: 'Department', type: 'select', required: true, options: HOSPITAL_DEPTS },
           { name: 'type', label: 'Type', type: 'select', required: true, default: 'Standard', options: ['Standard', 'Gap', 'Change Request'] },

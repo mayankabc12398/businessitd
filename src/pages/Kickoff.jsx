@@ -7,9 +7,6 @@ import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Drawer, Modal, Badge, Avatar, DetailRow, ProgressBar, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { HIMS_MODULES } from '../data/masters';
-import { PROJECTS } from '../data/projects';
-import { findClient } from '../data/clients';
-import { findUser } from '../data/team';
 import { getActivities, subscribeActivities } from '../data/activitiesStore';
 
 const money = (n, cur = 'INR') => { try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: cur, maximumFractionDigits: 0, notation: n >= 1e7 ? 'compact' : 'standard' }).format(n); } catch { return `${cur} ${n}`; } };
@@ -18,6 +15,10 @@ const koStatus = (p) => { const m = p.milestones.find((x) => x.key === 'kickoff'
 
 export default function Kickoff() {
   const { data: projects, loading } = useApi(() => api.getProjects());
+  const { data: clients } = useApi(() => api.getClients());
+  const { data: team } = useApi(() => api.getTeam());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const findUser = (id) => (team || []).find((u) => u.id === id);
   const toast = useToast();
   const [active, setActive] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -90,9 +91,9 @@ export default function Kickoff() {
       </Drawer>
 
       <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"
-        submitLabel="Schedule" onSubmit={(v) => { const p = PROJECTS.find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setShow(false); }}
+        submitLabel="Schedule" onSubmit={(v) => { const p = (projects || []).find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setShow(false); }}
         fields={[
-          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+          { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
           { name: 'mode', label: 'Mode', type: 'select', default: 'On-site', options: ['On-site', 'Virtual', 'Hybrid'] },
           { name: 'participants', label: 'Participants', type: 'tags', full: true, placeholder: 'Add attendees and press Enter…' },
@@ -112,6 +113,10 @@ const isDone = (s) => s === 'Done' || s === 'Completed';
 function KickoffModal({ project: p, activities = [], onClose }) {
   const navigate = useNavigate();
   const [openId, setOpenId] = useState(null);
+  const { data: clients } = useApi(() => api.getClients());
+  const { data: team } = useApi(() => api.getTeam());
+  const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
+  const findUser = (id) => (team || []).find((u) => u.id === id);
   if (!p) return null;
   const client = findClient(p.clientId);
   const spoc = client?.contacts?.find((c) => c.primary);
@@ -132,7 +137,7 @@ function KickoffModal({ project: p, activities = [], onClose }) {
     ['Pending', pending, <Clock key="i" size={17} />, 'peach'],
     ['Planned Effort', `${days}d`, <Layers key="i" size={17} />, 'lavender'],
   ];
-  const team = [['PM', p.pm], ['FC', p.fc], ['TC', p.tc]];
+  const roleAssignments = [['PM', p.pm], ['FC', p.fc], ['TC', p.tc]];
 
   return (
     <Modal open={!!p} onClose={onClose} size="full" title={p.name} subtitle={`${p.code} · ${client?.name || ''}`}
@@ -236,7 +241,7 @@ function KickoffModal({ project: p, activities = [], onClose }) {
               </div>
               <div className="t-xs fw-6 ink-3 mt-3 mb-2" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Attendees</div>
               <div className="flex flex-wrap gap-2">
-                {team.map(([role, id]) => { const u = findUser(id); return (
+                {roleAssignments.map(([role, id]) => { const u = findUser(id); return (
                   <div key={role} className="flex items-center gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px 3px 3px' }}>
                     <Avatar name={u?.name} hue={u?.avatarHue} size="sm" /><span className="t-xs fw-6">{u?.name} <span className="ink-3">· {role}</span></span>
                   </div>

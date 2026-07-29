@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Tabs, Badge, StatusBadge, ProgressBar, Chip, Drawer, DetailRow, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { PROJECTS } from '../data/projects';
 import { HIMS_MODULES, SEVERITIES } from '../data/masters';
 import { BUG_CATEGORIES } from '../data/delivery';
 
@@ -15,6 +14,7 @@ export default function Uat() {
   const { data: cases, loading } = useApi(() => api.getUatCases());
   const { data: bugs, loading: bl } = useApi(() => api.getBugs());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
+  const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [tab, setTab] = useState('uat');
   const [proj, setProj] = useState('All');
@@ -30,7 +30,7 @@ export default function Uat() {
   const fCases = useMemo(() => allCases.filter((r) => proj === 'All' || r.projectName === proj), [allCases, proj]);
   const fBugs = useMemo(() => allBugs.filter((r) => proj === 'All' || r.projectName === proj), [allBugs, proj]);
 
-  const projName = (code) => { const p = PROJECTS.find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
+  const projName = (code) => { const p = (projects || []).find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
   const addUat = (v) => {
     const total = Number(v.total) || 0;
     const modules = Array.isArray(v.module) ? v.module : v.module ? [v.module] : [];
@@ -102,7 +102,7 @@ export default function Uat() {
         <FormDrawer key="uat-form" open={show} onClose={() => setShow(false)} title="New UAT Round" subtitle="Create a module UAT test cycle"
           submitLabel="Create Round" onSubmit={addUat}
           fields={[
-            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
             { name: 'module', label: 'Module', type: 'multiselect', required: true, options: HIMS_MODULES.map((m) => m.name), placeholder: 'Select one or more…' },
             { name: 'total', label: 'Test Cases', type: 'number', required: true, placeholder: '0' },
             { name: 'bugCategory', label: 'Bug Category', type: 'select', options: BUG_CATEGORIES },
@@ -115,7 +115,7 @@ export default function Uat() {
         <FormDrawer key="bug-form" open={show} onClose={() => setShow(false)} title="Log Bug" subtitle="Report a defect found during testing"
           submitLabel="Log Bug" onSubmit={addBug}
           fields={[
-            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: PROJECTS.filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
+            { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
             { name: 'title', label: 'Bug Summary', required: true, full: true, placeholder: 'Short one-line summary…' },
             { name: 'category', label: 'Bug Category', type: 'select', required: true, default: 'Functional', options: BUG_CATEGORIES },
             { name: 'severity', label: 'Severity', type: 'select', required: true, default: 'Medium', options: SEVERITIES },

@@ -4,12 +4,12 @@ import { FileCode2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Info } from
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
 import { PageHeader, MetricCard, Chip, Badge, Skeleton, EmptyState } from '../../components/ui';
-import { APIS } from '../../data/integration';
 import { getUserApis, subscribeUserApis } from '../../data/userApis';
 import { CodeBlock } from './_shared';
 
 export default function Payloads() {
   const { data: rows, loading } = useApi(() => api.getPayloads());
+  const { data: apis } = useApi(() => api.getApis());
   const [integration, setIntegration] = useState('All');
   const [userApis, setUserApis] = useState(getUserApis);
   useEffect(() => subscribeUserApis(setUserApis), []);
@@ -17,9 +17,9 @@ export default function Payloads() {
   // Purpose (summary) for each API — seeded catalogue + APIs added via "Add API".
   const purposeByApiId = useMemo(() => {
     const m = {};
-    [...APIS, ...userApis].forEach((a) => { if (a.purpose) m[a.id] = a.purpose; });
+    [...(apis || []), ...userApis].forEach((a) => { if (a.purpose) m[a.id] = a.purpose; });
     return m;
-  }, [userApis]);
+  }, [apis, userApis]);
 
   // APIs added via the Add API form that carry payload/response samples.
   const userCards = useMemo(() => userApis
