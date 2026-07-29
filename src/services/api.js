@@ -21,6 +21,7 @@ import * as sfrApi from "../networkServices/sfrApi";
 import * as lookupsApi from "../networkServices/lookupsApi";
 import { getLookupMaps } from "../networkServices/lookups";
 import * as N from "../networkServices/normalize";
+import * as W from "../networkServices/writeDto";
 import * as d from "./derive";
 
 // Fetch data + lookup maps together, then normalize.
@@ -145,8 +146,78 @@ export const api = {
   getFeatureTrend: () => Promise.resolve(d.emptyTrend()),
   getSfrKpis: () => sfrApi.getSfrKpis(),
 
-  // ---- mutations ----
-  // Optimistic client-side echo used by a few forms for instant feedback.
+  // ============================================================
+  // WRITES — persist to the backend. Payloads use lookup NAMES (not ids):
+  // e.g. { healthStatus:"On Track", clientId:"CL-001", priority:"High",
+  // currencyCode:"INR", modules:["M-OPD"] } — resolved server-side.
+  // Each returns the created/updated row; callers reload the list after.
+  // ============================================================
+  // projects
+  createProject: (payload) => projectsApi.insertProject(payload),
+  updateProject: (code, payload) => projectsApi.updateProject(code, payload),
+  deleteProject: (code) => projectsApi.deleteProject(code),
+  saveProjectModules: (code, moduleIds) => projectsApi.saveProjectModules(code, moduleIds),
+  saveProjectInterfaces: (code, names) => projectsApi.saveProjectInterfaces(code, names),
+  // clients
+  createClient: (payload) => clientsApi.insertClient(payload),
+  updateClient: (id, payload) => clientsApi.updateClient(id, payload),
+  deleteClient: (id) => clientsApi.deleteClient(id),
+  // team
+  createTeamMember: async (v) => teamApi.insertTeamMember(await W.teamMemberDto(v)),
+  updateTeamMember: async (id, v) => teamApi.updateTeamMember(id, await W.teamMemberDto(v)),
+  deleteTeamMember: (id) => teamApi.deleteTeamMember(id),
+  // delivery — form values (names/codes) resolved to entity DTOs via writeDto
+  createSrsSession: async (v) => deliveryApi.insertSrsSession(await W.srsSessionDto(v)),
+  createRequirement: async (v) => deliveryApi.insertRequirement(await W.requirementDto(v)),
+  createMasterData: async (v) => deliveryApi.insertMasterDataRecord(await W.masterDataDto(v)),
+  createDevItem: async (v) => deliveryApi.insertDevelopmentItem(await W.devItemDto(v)),
+  createUatCase: async (v) => deliveryApi.insertUatCase(await W.uatCaseDto(v)),
+  createBug: async (v) => deliveryApi.insertBug(await W.bugDto(v)),
+  createTraining: async (v) => deliveryApi.insertTraining(await W.trainingDto(v)),
+  updateSrsSession: async (id, v) => deliveryApi.updateSrsSession(id, await W.srsSessionDto(v)),
+  updateRequirement: async (id, v) => deliveryApi.updateRequirement(id, await W.requirementDto(v)),
+  updateMasterData: async (id, v) => deliveryApi.updateMasterDataRecord(id, await W.masterDataDto(v)),
+  updateDevItem: async (id, v) => deliveryApi.updateDevelopmentItem(id, await W.devItemDto(v)),
+  updateUatCase: async (id, v) => deliveryApi.updateUatCase(id, await W.uatCaseDto(v)),
+  updateBug: async (id, v) => deliveryApi.updateBug(id, await W.bugDto(v)),
+  updateTraining: async (id, v) => deliveryApi.updateTraining(id, await W.trainingDto(v)),
+  // governance
+  createIssue: async (v) => governanceApi.insertIssue(await W.issueDto(v)),
+  createRisk: async (v) => governanceApi.insertRisk(await W.riskDto(v)),
+  createSignoff: async (v) => governanceApi.insertSignoff(await W.signoffDto(v)),
+  createDocument: async (v) => governanceApi.insertDocument(await W.documentDto(v)),
+  updateIssue: async (id, v) => governanceApi.updateIssue(id, await W.issueDto(v)),
+  updateRisk: async (id, v) => governanceApi.updateRisk(id, await W.riskDto(v)),
+  updateSignoff: async (id, v) => governanceApi.updateSignoff(id, await W.signoffDto(v)),
+  updateDocument: async (id, v) => governanceApi.updateDocument(id, await W.documentDto(v)),
+  // activities & hospital users
+  createActivity: async (v) => activitiesApi.insertActivity(await W.activityDto(v)),
+  updateActivity: async (id, v) => activitiesApi.updateActivity(id, await W.activityDto(v)),
+  deleteActivity: (id) => activitiesApi.deleteActivity(id),
+  createHospitalUser: async (v) => activitiesApi.insertHospitalUser(await W.hospitalUserDto(v)),
+  updateHospitalUser: async (id, v) => activitiesApi.updateHospitalUser(id, await W.hospitalUserDto(v)),
+  // integrations & apis
+  createIntegration: (p) => integrationsApi.insertIntegration(p),
+  updateIntegration: (id, p) => integrationsApi.updateIntegration(id, p),
+  deleteIntegration: (id) => integrationsApi.deleteIntegration(id),
+  createApi: (p) => apisApi.insertApi(p),
+  updateApi: (id, p) => apisApi.updateApi(id, p),
+  deleteApi: (id) => apisApi.deleteApi(id),
+  saveApiPayload: (id, p) => apisApi.saveApiPayload(id, p),
+  // features (SFR) + lifecycle
+  createFeature: (p) => featuresApi.insertFeature(p),
+  updateFeature: (id, p) => featuresApi.updateFeature(id, p),
+  deleteFeature: (id) => featuresApi.deleteFeature(id),
+  advanceFeature: (id) => featuresApi.advanceFeature(id),
+  setFeatureStatus: (id, status) => featuresApi.setFeatureStatus(id, status),
+  saveFeatureSegments: (id, segments) => featuresApi.saveFeatureSegments(id, segments),
+  saveBusinessAnalysis: (id, p) => featureDocsApi.saveBusinessAnalysis(id, p),
+  saveTechnicalAnalysis: (id, p) => featureDocsApi.saveTechnicalAnalysis(id, p),
+  saveWorkflow: (id, p) => featureDocsApi.saveWorkflow(id, p),
+  saveDevDetails: (id, p) => featureDocsApi.saveDevDetails(id, p),
+  saveImpact: (id, p) => featureDocsApi.saveImpact(id, p),
+
+  // ---- legacy optimistic echo (kept for any caller not yet migrated) ----
   submit: (entity, payload) =>
     Promise.resolve({ ok: true, entity, id: `${entity.slice(0, 3).toUpperCase()}-NEW-${Date.now()}`, payload }),
   actOn: (entity, id, action, remarks = "") =>

@@ -31,7 +31,7 @@ const StepCell = ({ done, at }) => (
 );
 
 export default function MasterData() {
-  const { data: rows, loading } = useApi(() => api.getMasterData());
+  const { data: rows, loading, reload } = useApi(() => api.getMasterData());
   const { data: kpis } = useApi(() => api.getMasterDataKpis());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
@@ -39,25 +39,28 @@ export default function MasterData() {
   const [statusF, setStatusF] = useState('All');
   const [showReq, setShowReq] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra] = useState([]);
 
   const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
   const projOptions = useMemo(() => ['All', ...new Set(allRows.map((r) => r.projectName))], [allRows]);
   const filtered = useMemo(() => allRows.filter((r) => (proj === 'All' || r.projectName === proj) && (statusF === 'All' || r.status.startsWith(statusF))), [allRows, proj, statusF]);
 
-  const addMaster = (v, imported) => {
+  const addMaster = async (v, imported) => {
     const p = (projects || []).find((x) => x.code === v.projectCode);
     const records = imported ? (Number(v.records) || 0) : 0;
-    setExtra((prev) => [{
-      id: `MD-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      master: v.master, requested: true, received: imported, imported,
-      requestedOn: '2026-07-24T10:00', receivedOn: imported ? '2026-07-24T10:05' : null, importedOn: imported ? '2026-07-24T10:10' : null,
-      records, failed: 0, validation: imported ? 'Passed' : '—', owner: v.owner || 'PMO',
-      requestedDate: v.requestedDate || null, importDate: v.importDate || null, type: v.type || null,
-      status: imported ? 'Imported' : 'Awaited',
-    }, ...prev]);
-    toast.success(imported ? 'Master imported' : 'Master requested', `${v.master} · ${p ? p.name.split(' — ')[0] : ''}`);
-    setShowReq(false); setShowImport(false);
+    try {
+      await api.createMasterData({
+        project: v.projectCode, masterItem: v.master, requested: true, received: imported, imported,
+        requestedOn: v.requestedDate || null, receivedOn: null, records, failed: 0,
+        validation: imported ? 'Passed' : '—', owner: v.owner || 'PMO',
+        status: imported ? 'Imported' : 'Awaited',
+      });
+      toast.success(imported ? 'Master imported' : 'Master requested', `${v.master} · ${p ? p.name.split(' — ')[0] : ''}`);
+      setShowReq(false); setShowImport(false);
+      reload();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   const columns = [

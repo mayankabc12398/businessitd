@@ -35,14 +35,25 @@ export default function ApiCatalogue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  const addApi = (v) => {
+  const addApi = async (v) => {
     const parent = (integrations || []).find((i) => i.id === v.integrationId);
+    // Optimistic local echo (existing userApis store behavior) — keep so the row shows instantly.
     addUserApi({
       id: `API-${2000 + allRows.length}`, integrationId: v.integrationId, integrationName: parent?.name || v.integrationId,
       name: v.name, purpose: v.purpose || '', method: v.method, url: v.url, sandboxUrl: v.sandboxUrl || '', liveUrl: v.liveUrl || '',
       authType: v.authType, headers: v.headers || '', status: 'In Development',
       requestPayload: v.requestPayload || '', successResponse: v.successResponse || '', errorResponse: v.errorResponse || '',
     });
+    // Persist through the seam (integrationId = integration CODE like INT-01).
+    try {
+      await api.createApi({
+        integrationId: v.integrationId, name: v.name, purpose: v.purpose, method: v.method, url: v.url,
+        sandboxUrl: v.sandboxUrl, liveUrl: v.liveUrl, authType: v.authType, headers: v.headers, status: 'In Development',
+        payload: { requestPayload: v.requestPayload, successResponse: v.successResponse, errorResponse: v.errorResponse },
+      });
+    } catch (e) {
+      toast.error('Could not save API', e?.message || 'Request failed');
+    }
     toast.success('API documented', `${v.method} ${v.name}`);
     setShow(false);
   };

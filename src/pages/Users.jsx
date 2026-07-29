@@ -72,18 +72,27 @@ export default function HospitalUsers() {
     userType: v.userType || '', email: v.email.trim(), mobile: v.mobile.trim(), modules: v.modules || '',
   });
 
-  const submitForm = (v) => {
+  const submitForm = async (v) => {
     const data = normalize(v);
     if (editRow) {
       setItems((prev) => prev.map((r) => (r.id === editRow.id ? { ...r, ...data } : r)));
       toast.success('User updated', data.employee);
-    } else {
+      setFormOpen(false); setEditRow(null);
+      return;
+    }
+    const nextSr = list.reduce((m, r) => Math.max(m, r.srNo || 0), 0) + 1;
+    try {
+      await api.createHospitalUser({
+        srNo: nextSr, department: data.department, employee: data.employee, designation: data.designation,
+        userType: data.userType, email: data.email, mobile: data.mobile, modules: data.modules,
+      });
       const nextNum = list.reduce((m, r) => Math.max(m, +String(r.id).split('-')[1] || 0), 0) + 1;
-      const nextSr = list.reduce((m, r) => Math.max(m, r.srNo || 0), 0) + 1;
       setItems((prev) => [...prev, { id: `USR-${String(nextNum).padStart(3, '0')}`, srNo: nextSr, ...data }]);
       toast.success('User added', data.employee);
+      setFormOpen(false); setEditRow(null);
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
     }
-    setFormOpen(false); setEditRow(null);
   };
 
   const confirmDelete = () => {

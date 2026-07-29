@@ -11,16 +11,16 @@ import { BUG_CATEGORIES } from '../data/delivery';
 const sevTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
 export default function Uat() {
-  const { data: cases, loading } = useApi(() => api.getUatCases());
-  const { data: bugs, loading: bl } = useApi(() => api.getBugs());
+  const { data: cases, loading, reload: reloadCases } = useApi(() => api.getUatCases());
+  const { data: bugs, loading: bl, reload: reloadBugs } = useApi(() => api.getBugs());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [tab, setTab] = useState('uat');
   const [proj, setProj] = useState('All');
   const [show, setShow] = useState(false);
-  const [extraCases, setExtraCases] = useState([]);
-  const [extraBugs, setExtraBugs] = useState([]);
+  const [extraCases] = useState([]);
+  const [extraBugs] = useState([]);
   const [activeUat, setActiveUat] = useState(null);
   const [activeBug, setActiveBug] = useState(null);
 
@@ -30,28 +30,34 @@ export default function Uat() {
   const fCases = useMemo(() => allCases.filter((r) => proj === 'All' || r.projectName === proj), [allCases, proj]);
   const fBugs = useMemo(() => allBugs.filter((r) => proj === 'All' || r.projectName === proj), [allBugs, proj]);
 
-  const projName = (code) => { const p = (projects || []).find((x) => x.code === code); return p ? p.name.split(' — ')[0] : code; };
-  const addUat = (v) => {
+  const addUat = async (v) => {
     const total = Number(v.total) || 0;
     const modules = Array.isArray(v.module) ? v.module : v.module ? [v.module] : [];
-    const rounds = modules.map((module, i) => ({
-      id: `UAT-${String(allCases.length + 1 + i).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
-      module, total, passed: 0, failed: 0, pending: total, status: 'Not Started',
-      tester: 'Client + QA', uatDate: v.uatDate || '2026-07-24', fromDate: v.fromDate || null, toDate: v.toDate || null, signoff: 'Pending',
-      bugCategory: v.bugCategory || '—', bugSummary: v.bugSummary || '',
-    }));
-    setExtraCases((prev) => [...rounds, ...prev]);
-    toast.success('UAT round created', `${modules.length} module${modules.length > 1 ? 's' : ''}`);
-    setShow(false);
+    try {
+      await Promise.all(modules.map((module) => api.createUatCase({
+        project: v.projectCode, module, total, passed: 0, failed: 0, pending: total,
+        status: 'Not Started', tester: 'Client + QA', uatDate: v.uatDate || '2026-07-24', signoff: 'Pending',
+      })));
+      toast.success('UAT round created', `${modules.length} module${modules.length > 1 ? 's' : ''}`);
+      setShow(false);
+      reloadCases();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
-  const addBug = (v) => {
-    setExtraBugs((prev) => [{
-      id: `BUG-${String(allBugs.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: projName(v.projectCode),
-      title: v.title, module: v.module, severity: v.severity, category: v.category, details: v.details || '',
-      status: 'Open', reportedBy: 'Client UAT', assignedTo: v.assignedTo, reported: '2026-07-24', resolved: null,
-    }, ...prev]);
-    toast.success('Bug logged', v.title);
-    setShow(false);
+  const addBug = async (v) => {
+    try {
+      await api.createBug({
+        project: v.projectCode, title: v.title, severity: v.severity, module: v.module,
+        category: v.category, status: 'Open', details: v.details || '',
+        reportedBy: 'Client UAT', assignedTo: v.assignedTo, reported: '2026-07-24',
+      });
+      toast.success('Bug logged', v.title);
+      setShow(false);
+      reloadBugs();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   const uatCols = [

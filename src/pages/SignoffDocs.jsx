@@ -25,16 +25,15 @@ export default function SignoffDocs() {
   const [tab, setTab] = useState('signoff');
 
   // ── Sign-off state ──
-  const { data: signoffs, loading: sigLoading } = useApi(() => api.getSignoffs());
+  const { data: signoffs, loading: sigLoading, reload: reloadSignoffs } = useApi(() => api.getSignoffs());
   const [statusF, setStatusF] = useState('Pending');
   const [showSignoff, setShowSignoff] = useState(false);
 
   // ── Documents state ──
-  const { data: docs, loading: docLoading } = useApi(() => api.getDocuments());
+  const { data: docs, loading: docLoading, reload: reloadDocs } = useApi(() => api.getDocuments());
   const [catF, setCatF] = useState('All');
   const [proj, setProj] = useState('All');
   const [showUpload, setShowUpload] = useState(false);
-  const [extra, setExtra] = useState([]);
 
   // Deep link: /signoff?new=1 → open the sign-off recorder.
   useEffect(() => { if (params.get('new') === '1') { setTab('signoff'); setShowSignoff(true); setParams({}, { replace: true }); } }, [params, setParams]);
@@ -46,22 +45,22 @@ export default function SignoffDocs() {
   const pending = (signoffs || []).filter((r) => r.status === 'Pending').length;
 
   // ── Documents derived ──
-  const allDocs = useMemo(() => [...extra, ...(docs || [])], [extra, docs]);
+  const allDocs = useMemo(() => docs || [], [docs]);
   const projOptions = useMemo(() => ['All', ...new Set(allDocs.map((r) => r.projectName))], [allDocs]);
   const docFiltered = useMemo(() => allDocs.filter((r) => (catF === 'All' || r.category === catF) && (proj === 'All' || r.projectName === proj)), [allDocs, catF, proj]);
   const totalSize = allDocs.reduce((s, r) => s + r.sizeKB, 0);
 
-  const addDoc = (v) => {
-    const p = (projects || []).find((x) => x.code === v.projectCode);
+  const addDoc = async (v) => {
     const ext = (v.name.includes('.') ? v.name.split('.').pop() : 'pdf').toLowerCase();
-    setExtra((prev) => [{
-      id: `DOC-${String(allDocs.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      name: v.name.includes('.') ? v.name : `${v.name}.${ext}`, category: v.category, ext,
-      version: v.version || 'v1.0', sizeKB: Number(v.sizeKB) || 256, uploadedBy: v.uploadedBy || 'PMO',
-      uploadedOn: '2026-07-24', shared: v.access === 'Shared',
-    }, ...prev]);
-    toast.success('Document uploaded', v.name);
-    setShowUpload(false);
+    try {
+      await api.createDocument({
+        project: v.projectCode, name: v.name.includes('.') ? v.name : `${v.name}.${ext}`,
+        category: v.category, ext, version: v.version, uploadedBy: v.uploadedBy, shared: v.access === 'Shared',
+      });
+      toast.success('Document uploaded', v.name);
+      setShowUpload(false);
+      reloadDocs();
+    } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
   };
 
   const sigColumns = [
@@ -132,7 +131,17 @@ export default function SignoffDocs() {
         </>
       )}
 
-      <RecordSignoffModal open={showSignoff} onClose={() => setShowSignoff(false)} projects={projects} onSaved={(m) => { toast.success('Sign-off recorded', m); setShowSignoff(false); }} />
+      <RecordSignoffModal open={showSignoff} onClose={() => setShowSignoff(false)} projects={projects} onSaved={async (f) => {
+        try {
+          await api.createSignoff({
+            project: f.project, milestone: f.milestone, status: 'Pending', signedBy: f.signedBy,
+            designation: f.designation, method: f.method, remarks: f.remarks,
+          });
+          toast.success('Sign-off recorded', f.milestone);
+          setShowSignoff(false);
+          reloadSignoffs();
+        } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
+      }} />
 
       <FormDrawer open={showUpload} onClose={() => setShowUpload(false)} title="Upload Document" subtitle="Add a project document to the repository"
         submitLabel="Upload" submitIcon={<Upload size={14} />} onSubmit={addDoc}
@@ -154,7 +163,7 @@ function RecordSignoffModal({ open, onClose, onSaved, projects }) {
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   return (
     <Modal open={open} onClose={onClose} title="Record Milestone Sign-off" subtitle="Capture a digital sign-off from the client"
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.milestone || !f.signedBy} onClick={() => onSaved(f.milestone)}><CheckCircle2 size={14} /> Record Sign-off</button></>}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.milestone || !f.signedBy} onClick={() => onSaved(f)}><CheckCircle2 size={14} /> Record Sign-off</button></>}>
       <div className="flex-col gap-3">
         <Field label="Project" required><Select value={f.project} onChange={(e) => set('project', e.target.value)} options={(projects || []).map((p) => ({ value: p.code, label: p.name }))} placeholder="Select project…" /></Field>
         <Field label="Milestone" required><Select value={f.milestone} onChange={(e) => set('milestone', e.target.value)} options={SIGNOFF_MILESTONES} placeholder="Select milestone…" /></Field>

@@ -12,14 +12,14 @@ const typeTone = { Standard: 'info', Gap: 'warning', 'Change Request': 'pending'
 const prioTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
 export default function Requirements() {
-  const { data: rows, loading } = useApi(() => api.getRequirements());
+  const { data: rows, loading, reload } = useApi(() => api.getRequirements());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [typeF, setTypeF] = useState('All');
   const [proj, setProj] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra] = useState([]);
 
   useEffect(() => { if (params.get('new') === '1') { setShow(true); setParams({}, { replace: true }); } }, [params, setParams]);
 
@@ -32,22 +32,27 @@ export default function Requirements() {
   const crs = allRows.filter((r) => r.type === 'Change Request').length;
   const approved = allRows.filter((r) => r.status === 'Approved').length;
 
-  const addReq = (v) => {
+  const addReq = async (v) => {
     const p = (projects || []).find((x) => x.code === v.projectCode);
     const name = p ? p.name.split(' — ')[0] : v.projectCode;
-    const id = `REQ-${String(allRows.length + 1).padStart(3, '0')}`;
-    setExtra((prev) => [{
-      id, projectCode: v.projectCode, projectName: name,
-      title: v.title, dept: v.dept, type: v.type, priority: v.priority, status: 'In Discussion',
-      effortDays: Number(v.effortDays) || 0, raisedBy: v.raisedBy || 'PMO', approvedBy: '—', signoffDate: null,
-      crValue: v.type === 'Change Request' ? (Number(v.crValue) || 0) : 0,
-    }, ...prev]);
-    toast.success('Requirement logged', `${id} · ${v.title}`);
-    if (v.notify !== false) {
-      api.actOn('requirement', id, 'notify', v.title);
-      toast.success(`${v.type} emailed`, `${id} sent to ${v.raisedBy || 'PMO'}, ${v.dept} dept & ${name} project owner`);
+    try {
+      const created = await api.createRequirement({
+        project: v.projectCode, title: v.title, department: v.dept, type: v.type,
+        priority: v.priority, status: 'In Discussion', effortDays: Number(v.effortDays) || 0,
+        raisedBy: v.raisedBy || 'PMO', approvedBy: '—',
+        crValue: v.type === 'Change Request' ? (Number(v.crValue) || 0) : 0,
+      });
+      const id = created?.id ?? '';
+      toast.success('Requirement logged', `${id} · ${v.title}`);
+      if (v.notify !== false) {
+        api.actOn('requirement', id, 'notify', v.title);
+        toast.success(`${v.type} emailed`, `${id} sent to ${v.raisedBy || 'PMO'}, ${v.dept} dept & ${name} project owner`);
+      }
+      setShow(false);
+      reload();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
     }
-    setShow(false);
   };
 
   const columns = [

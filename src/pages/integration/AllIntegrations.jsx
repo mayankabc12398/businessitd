@@ -181,7 +181,7 @@ function IntegrationDetail({ integration: it, onClose }) {
 }
 
 export default function AllIntegrations() {
-  const { data: rows, loading } = useApi(() => api.getIntegrations());
+  const { data: rows, loading, reload } = useApi(() => api.getIntegrations());
   const { data: kpis } = useApi(() => api.getSirKpis());
   const { data: clientList } = useApi(() => api.getClientImplementations());
   const clientsFor = (id) => (clientList || []).filter((c) => c.integrationId === id || c.integrationCode === id);
@@ -189,7 +189,7 @@ export default function AllIntegrations() {
   const [params, setParams] = useSearchParams();
   const [type, setType] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra] = useState([]);
   const [detail, setDetail] = useState(null);
 
   const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
@@ -207,15 +207,19 @@ export default function AllIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, allRows]);
 
-  const addIntegration = (v) => {
-    setExtra((prev) => [{
-      id: `INT-${String(allRows.length + 1).padStart(2, '0')}`, name: v.name, type: v.type, vendor: v.vendor || '—',
-      company: v.company || '—', contact: v.contact || '—', email: v.email || '—', phone: v.phone || '—',
-      website: v.website || '—', docLink: v.docLink || '#', status: v.status || 'In Development', stage: 1,
-      reusable: false, totalApis: 0, createdOn: '2026-07-27', lastUpdated: '2026-07-27', description: v.description || '',
-    }, ...prev]);
-    toast.success('Integration created', `${v.name} · ${v.type}`);
-    setShow(false);
+  const addIntegration = async (v) => {
+    try {
+      await api.createIntegration({
+        name: v.name, type: v.type, vendor: v.vendor, company: v.company, contact: v.contact,
+        email: v.email, phone: v.phone, website: v.website, docLink: v.docLink,
+        status: v.status || 'In Development', reusable: !!v.reusable, description: v.description,
+      });
+      toast.success('Integration created', `${v.name} · ${v.type}`);
+      setShow(false);
+      reload();
+    } catch (e) {
+      toast.error('Could not save integration', e?.message || 'Request failed');
+    }
   };
 
   const columns = [

@@ -11,14 +11,13 @@ const levelTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'n
 const cellColor = (score) => score >= 16 ? 'var(--danger)' : score >= 10 ? 'var(--warning)' : score >= 5 ? 'var(--info)' : 'var(--success)';
 
 export default function Risks() {
-  const { data: rows, loading } = useApi(() => api.getRisks());
+  const { data: rows, loading, reload } = useApi(() => api.getRisks());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [levelF, setLevelF] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
 
-  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const allRows = useMemo(() => rows || [], [rows]);
   const filtered = useMemo(() => allRows.filter((r) => levelF === 'All' || r.level === levelF), [allRows, levelF]);
   const open = allRows.filter((r) => r.status !== 'Closed');
   const high = open.filter((r) => ['High', 'Critical'].includes(r.level)).length;
@@ -30,17 +29,19 @@ export default function Risks() {
     return grid;
   }, [allRows]);
 
-  const addRisk = (v) => {
-    const p = (projects || []).find((x) => x.code === v.projectCode);
+  const addRisk = async (v) => {
     const prob = Number(v.probability); const impact = Number(v.impact); const score = prob * impact;
     const level = score >= 16 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low';
-    setExtra((prev) => [{
-      id: `RSK-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      title: v.title, category: v.category, probability: prob, impact, score, level,
-      owner: v.owner, status: 'Open', mitigation: v.mitigation || 'Mitigation plan to be defined.', target: v.target || '2026-09-01',
-    }, ...prev]);
-    toast.success('Risk added', `${v.title} · ${level}`);
-    setShow(false);
+    try {
+      await api.createRisk({
+        project: v.projectCode, title: v.title, riskType: v.category, level,
+        probability: prob, impact, score, owner: v.owner, status: 'Open',
+        mitigation: v.mitigation, target: v.target,
+      });
+      toast.success('Risk added', `${v.title} · ${level}`);
+      setShow(false);
+      reload();
+    } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
   };
 
   const columns = [

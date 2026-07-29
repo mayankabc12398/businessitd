@@ -28,19 +28,30 @@ export default function Development() {
   const filtered = useMemo(() => allRows.filter((r) => (proj === 'All' || r.projectName === proj) && (typeF === 'All' || r.type === typeF)), [allRows, proj, typeF]);
   const activeRow = useMemo(() => allRows.find((r) => r.id === activeId) || null, [allRows, activeId]);
 
-  const addItem = (v) => {
+  const addItem = async (v) => {
     const p = (projects || []).find((x) => x.code === v.projectCode);
-    setExtra((prev) => [{
-      id: `DEP-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      feature: `${v.env} Deployment`, module: v.serverHost || '—', type: 'Deployment',
-      env: v.env, serverHost: v.serverHost, serverUser: v.serverUser, serverPass: v.serverPass,
-      anydeskId: v.anydeskId, anydeskPass: v.anydeskPass, dbName: v.dbName, dbUser: v.dbUser, dbPass: v.dbPass,
-      appUrl: v.appUrl, notes: v.notes, developer: v.developer || 'PMO', status: 'Configured',
-      scheduleDate: v.scheduleDate || null,
-      effortDays: 0, devDate: null, deployDate: null, progress: 0,
-    }, ...prev]);
-    toast.success('Deployment credentials saved', `${v.env} · ${p ? p.name.split(' — ')[0] : ''}`);
-    setShow(false);
+    try {
+      await api.createDevItem({
+        project: v.projectCode, feature: `${v.env} Deployment`, type: 'Deployment',
+        developer: v.developer || 'PMO', status: 'Configured', effortDays: 0,
+        devDate: v.scheduleDate || null, progress: 0,
+      });
+      // Credential fields (server/AnyDesk/DB/URL/notes) aren't part of the createDevItem
+      // seam, so keep the optimistic row locally so the credentials drawer still works.
+      setExtra((prev) => [{
+        id: `DEP-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
+        feature: `${v.env} Deployment`, module: v.serverHost || '—', type: 'Deployment',
+        env: v.env, serverHost: v.serverHost, serverUser: v.serverUser, serverPass: v.serverPass,
+        anydeskId: v.anydeskId, anydeskPass: v.anydeskPass, dbName: v.dbName, dbUser: v.dbUser, dbPass: v.dbPass,
+        appUrl: v.appUrl, notes: v.notes, developer: v.developer || 'PMO', status: 'Configured',
+        scheduleDate: v.scheduleDate || null,
+        effortDays: 0, devDate: null, deployDate: null, progress: 0,
+      }, ...prev]);
+      toast.success('Deployment credentials saved', `${v.env} · ${p ? p.name.split(' — ')[0] : ''}`);
+      setShow(false);
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   const copy = (val, label) => {

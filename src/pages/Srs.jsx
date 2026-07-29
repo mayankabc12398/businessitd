@@ -20,7 +20,7 @@ const fmtDateTime = (dt) => {
 const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`);
 
 export default function Srs() {
-  const { data: rows, loading } = useApi(() => api.getSrsSchedule());
+  const { data: rows, loading, reload } = useApi(() => api.getSrsSchedule());
   const { data: kpis } = useApi(() => api.getSrsKpis());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
@@ -29,7 +29,7 @@ export default function Srs() {
   const [statusF, setStatusF] = useState('All');
   const [show, setShow] = useState(false);
   const [bulk, setBulk] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra] = useState([]);
   const [selected, setSelected] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [overrides, setOverrides] = useState({}); // id -> { signoff, status, docs }
@@ -42,37 +42,41 @@ export default function Srs() {
   const filtered = useMemo(() => allRows.filter((r) => (proj === 'All' || r.projectName === proj) && (statusF === 'All' || r.status === statusF)), [allRows, proj, statusF]);
   const activeRow = useMemo(() => allRows.find((r) => r.id === activeId) || null, [allRows, activeId]);
 
-  const addSrs = (v) => {
+  const addSrs = async (v) => {
     const p = (projects || []).find((x) => x.code === v.projectCode);
     const points = Number(v.srsPoints) || 0;
     const depts = Array.isArray(v.dept) ? v.dept : v.dept ? [v.dept] : [];
-    const rows = depts.map((dept, i) => ({
-      id: `SRS-${String(baseRows.length + 1 + i).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      dept, phase: v.phase || '—', consultant: v.consultant, planned: v.planned, actual: null, status: 'Scheduled',
-      completedAt: v.completedAt || null, attendees: Number(v.attendees) || 0, srsPoints: points,
-      requirements: points || Number(v.requirements) || 0, gaps: 0, crs: 0, signoff: '—', docs: [],
-    }));
-    setExtra((prev) => [...rows, ...prev]);
-    toast.success('SRS scheduled', `${depts.length} department${depts.length > 1 ? 's' : ''} · ${p ? p.name.split(' — ')[0] : ''}`);
-    setShow(false);
+    try {
+      await Promise.all(depts.map((dept) => api.createSrsSession({
+        project: v.projectCode, department: dept, consultant: v.consultant, planned: v.planned,
+        status: 'Scheduled', requirements: points, gaps: 0, crs: 0, signoff: '—',
+      })));
+      toast.success('SRS scheduled', `${depts.length} department${depts.length > 1 ? 's' : ''} · ${p ? p.name.split(' — ')[0] : ''}`);
+      setShow(false);
+      reload();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   // Bulk schedule — one SRS session per selected department, optional schedule mail
-  const scheduleBulk = ({ projectCode, consultant, planned, points, depts, sendMail, attach }) => {
+  const scheduleBulk = async ({ projectCode, consultant, planned, points, depts, sendMail }) => {
     const p = (projects || []).find((x) => x.code === projectCode);
     const name = p ? p.name.split(' — ')[0] : projectCode;
     const pts = Number(points) || 0;
-    const docs = attach || [];
-    const created = depts.map((dept, i) => ({
-      id: `SRS-B${String(baseRows.length + i + 1).padStart(3, '0')}`, projectCode, projectName: name,
-      dept, consultant, planned, actual: null, status: 'Scheduled', completedAt: null,
-      attendees: 0, srsPoints: pts, requirements: pts, gaps: 0, crs: 0, signoff: '—', docs: [...docs],
-    }));
-    setExtra((prev) => [...created, ...prev]);
-    setBulk(false);
-    const n = created.length;
-    if (sendMail) toast.success(`${n} session${n > 1 ? 's' : ''} scheduled & invite emailed`, `${name} · sent to ${consultant} + department attendees`);
-    else toast.success(`${n} SRS session${n > 1 ? 's' : ''} scheduled`, `${name} · ${n} department${n > 1 ? 's' : ''}`);
+    try {
+      await Promise.all(depts.map((dept) => api.createSrsSession({
+        project: projectCode, department: dept, consultant, planned,
+        status: 'Scheduled', requirements: pts, gaps: 0, crs: 0, signoff: '—',
+      })));
+      setBulk(false);
+      reload();
+      const n = depts.length;
+      if (sendMail) toast.success(`${n} session${n > 1 ? 's' : ''} scheduled & invite emailed`, `${name} · sent to ${consultant} + department attendees`);
+      else toast.success(`${n} SRS session${n > 1 ? 's' : ''} scheduled`, `${name} · ${n} department${n > 1 ? 's' : ''}`);
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   // Send a schedule/invite mail for a single scheduled session

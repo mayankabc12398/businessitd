@@ -17,7 +17,15 @@ const toMap = (rows, pick) => {
   return m;
 };
 
+// Build a Map(pick(row) -> id) — reverse of toMap, for write DTOs (name/code -> id).
+const toRevMap = (rows, pick) => {
+  const m = new Map();
+  for (const r of rows) if (r && r.id != null) m.set(pick(r), r.id);
+  return m;
+};
+
 let cache = null;
+let writeCache = null;
 
 // Fetch all lookups once; subsequent calls reuse the resolved maps.
 export const getLookupMaps = () => {
@@ -97,4 +105,78 @@ export const getLookupMaps = () => {
     };
   })();
   return cache;
+};
+
+// Reverse maps for WRITES: convert the display value a form collects (a lookup
+// NAME, a parent CODE, or a lifecycle stageKey) back to the numeric FK id the
+// generic entity inserts require. Cached once.
+export const getWriteMaps = () => {
+  if (writeCache) return writeCache;
+  writeCache = (async () => {
+    const [
+      severity, health, hospitalType, country, currency, projectStatus,
+      projectCategory, implementationType, lifecycleStage, himsModule,
+      featureModule, featureCategory, featureStatus, issueType, riskType,
+      bugCategory, integrationCategory, integrationStatus, httpMethod, authType,
+      teamDepartment, team, clients, projects, features, integrations, apisList,
+      hospitalDepartment, signoffMilestone, masterDataItem, docCategory, trainingType, role,
+    ] = await Promise.all([
+      fetchList("GetSeverityLevelList"), fetchList("GetHealthStatusList"),
+      fetchList("GetHospitalTypeList"), fetchList("GetCountryList"),
+      fetchList("GetCurrencyList"), fetchList("GetProjectStatusList"),
+      fetchList("GetProjectCategoryList"), fetchList("GetImplementationTypeList"),
+      fetchList("GetLifecycleStageList"), fetchList("GetHimsModuleList"),
+      fetchList("GetFeatureModuleList"), fetchList("GetFeatureCategoryList"),
+      fetchList("GetFeatureStatusList"), fetchList("GetIssueTypeList"),
+      fetchList("GetRiskTypeList"), fetchList("GetBugCategoryList"),
+      fetchList("GetIntegrationCategoryList"), fetchList("GetIntegrationStatusList"),
+      fetchList("GetHttpMethodList"), fetchList("GetAuthTypeList"),
+      fetchList("GetTeamDepartmentList"),
+      makeApiRequest(apiUrls.GetTeamMemberList, { method: "get" }).then(toList).catch(() => []),
+      fetchList("GetClientList"), fetchList("GetProjectList"),
+      fetchList("GetFeatureList"), fetchList("GetIntegrationList"), fetchList("GetApiList"),
+      fetchList("GetHospitalDepartmentList"), fetchList("GetSignoffMilestoneList"),
+      fetchList("GetMasterDataItemList"), fetchList("GetDocCategoryList"),
+      fetchList("GetTrainingTypeList"), fetchList("GetRoleList"),
+    ]);
+    const byName = (r) => r.name;
+    return {
+      severity: toRevMap(severity, byName),      // also used for priority / riskLevel
+      health: toRevMap(health, byName),
+      hospitalType: toRevMap(hospitalType, byName),
+      country: toRevMap(country, (r) => r.code || r.name),
+      currency: toRevMap(currency, (r) => r.code || r.name),
+      projectStatus: toRevMap(projectStatus, byName),
+      projectCategory: toRevMap(projectCategory, byName),
+      implementationType: toRevMap(implementationType, byName),
+      lifecycleStage: toRevMap(lifecycleStage, (r) => r.stageKey || r.name),
+      himsModule: toRevMap(himsModule, byName),
+      himsModuleByCode: toRevMap(himsModule, (r) => r.code),
+      featureModule: toRevMap(featureModule, byName),
+      featureCategory: toRevMap(featureCategory, byName),
+      featureStatus: toRevMap(featureStatus, byName),
+      issueType: toRevMap(issueType, byName),
+      riskType: toRevMap(riskType, byName),
+      bugCategory: toRevMap(bugCategory, byName),
+      integrationCategory: toRevMap(integrationCategory, byName),
+      integrationStatus: toRevMap(integrationStatus, byName),
+      httpMethod: toRevMap(httpMethod, byName),
+      authType: toRevMap(authType, byName),
+      teamDepartment: toRevMap(teamDepartment, byName),
+      hospitalDepartment: toRevMap(hospitalDepartment, byName),
+      signoffMilestone: toRevMap(signoffMilestone, byName),
+      masterDataItem: toRevMap(masterDataItem, byName),
+      docCategory: toRevMap(docCategory, byName),
+      trainingType: toRevMap(trainingType, byName),
+      role: toRevMap(role, byName),
+      team: toRevMap(team, (r) => r.code || r.name),
+      // parent code -> numeric id
+      client: toRevMap(clients, code),
+      project: toRevMap(projects, code),
+      feature: toRevMap(features, code),
+      integration: toRevMap(integrations, code),
+      api: toRevMap(apisList, code),
+    };
+  })();
+  return writeCache;
 };

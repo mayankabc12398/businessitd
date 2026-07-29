@@ -11,18 +11,17 @@ import { HIMS_MODULES, ISSUE_TYPES, SEVERITIES } from '../data/masters';
 const sevTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' };
 
 export default function Issues() {
-  const { data: rows, loading } = useApi(() => api.getIssues());
+  const { data: rows, loading, reload } = useApi(() => api.getIssues());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [sevF, setSevF] = useState('All');
   const [statusF, setStatusF] = useState('Open');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
 
   useEffect(() => { if (params.get('new') === '1') { setShow(true); setParams({}, { replace: true }); } }, [params, setParams]);
 
-  const allRows = useMemo(() => [...extra, ...(rows || [])], [extra, rows]);
+  const allRows = useMemo(() => rows || [], [rows]);
   const filtered = useMemo(() => allRows.filter((r) =>
     (sevF === 'All' || r.severity === sevF) &&
     (statusF === 'All' || (statusF === 'Open' ? !['Resolved', 'Closed'].includes(r.status) : r.status === statusF))
@@ -30,15 +29,16 @@ export default function Issues() {
 
   const open = allRows.filter((r) => !['Resolved', 'Closed'].includes(r.status));
 
-  const addIssue = (v) => {
-    const p = (projects || []).find((x) => x.code === v.projectCode);
-    setExtra((prev) => [{
-      id: `ISS-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: p ? p.name.split(' — ')[0] : v.projectCode,
-      title: v.title, type: v.type, module: v.module, severity: v.severity, status: 'Open',
-      reportedBy: v.reportedBy || 'Client', assignedTo: v.assignedTo, raised: '2026-07-24', due: v.due || '2026-08-15', resolved: null, ageDays: 0,
-    }, ...prev]);
-    toast.success('Issue logged', v.title);
-    setShow(false);
+  const addIssue = async (v) => {
+    try {
+      await api.createIssue({
+        project: v.projectCode, title: v.title, issueType: v.type, module: v.module,
+        severity: v.severity, status: 'Open', reportedBy: v.reportedBy, assignedTo: v.assignedTo, due: v.due,
+      });
+      toast.success('Issue logged', v.title);
+      setShow(false);
+      reload();
+    } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
   };
   const critical = open.filter((r) => r.severity === 'Critical').length;
   const overdue = open.filter((r) => r.ageDays > 21).length;

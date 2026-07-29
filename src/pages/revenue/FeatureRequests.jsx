@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Inbox, Plus, Eye, Clock, ClipboardCheck } from 'lucide-react';
+import { api } from '../../services/api';
 import { PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast } from '../../components/ui';
 import { fmtDate } from '../../utils/format';
 import { FEATURE_MODULES, FEATURE_CATEGORIES, PRIORITIES } from '../../data/revenue';
@@ -29,7 +30,7 @@ export default function FeatureRequests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  const addRequest = (v) => {
+  const addRequest = async (v) => {
     storeAddFeature({
       id: `FEA-${2001 + rows.length}`, name: v.name, module: v.module, category: v.category, client: v.client,
       requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
@@ -38,6 +39,18 @@ export default function FeatureRequests() {
       requestedBy: v.requestedBy || '—', businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
       functionalConsultant: '—', projectManager: 'Devendra Singh', developer: 'TBD',
     });
+    // Persist through the seam (code auto-generated; status defaults to "New Request").
+    try {
+      await api.createFeature({
+        name: v.name, module: v.module, category: v.category, client: v.client,
+        requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—',
+        businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
+        requestedBy: v.requestedBy || '—', functionalConsultant: '—',
+        projectManager: 'Devendra Singh', developer: 'TBD',
+      });
+    } catch (e) {
+      toast.error('Could not save feature request', e?.message || 'Request failed');
+    }
     toast.success('Feature request logged', v.name);
     setShow(false);
   };

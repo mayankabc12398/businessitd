@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useApi } from '../../hooks/useApi';
-import { getFeatures, subscribeFeatures, addFeature as storeAddFeature, advanceFeature, ADVANCE_LABEL, setFeatureData } from '../../data/featuresStore';
+import { getFeatures, subscribeFeatures, addFeature as storeAddFeature, advanceFeature, ADVANCE_LABEL, setFeatureData, loadFeatures } from '../../data/featuresStore';
 import {
   PageHeader, MetricCard, DataTable, Badge, Chip, FormDrawer, useToast,
   Drawer, Tabs, DetailRow, EmptyState,
@@ -299,9 +299,14 @@ export default function AllFeatures() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, allRows]);
 
-  const advance = (id) => { const nx = advanceFeature(id); if (nx) toast.success('Feature advanced', nx); };
+  const advance = async (id) => {
+    const nx = advanceFeature(id);
+    if (nx) toast.success('Feature advanced', nx);
+    // Persist the lifecycle advance through the seam (id = feature CODE), then reconcile the store.
+    try { await api.advanceFeature(id); await loadFeatures(); } catch { /* keep optimistic store state */ }
+  };
 
-  const addFeature = (v) => {
+  const addFeature = async (v) => {
     storeAddFeature({
       id: `FEA-${1001 + allRows.length}`, name: v.name, module: v.module, category: v.category, client: v.client,
       requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—', status: 'New Request',
@@ -310,6 +315,18 @@ export default function AllFeatures() {
       projectManager: v.projectManager || '—', developer: v.developer || 'TBD', requestedBy: v.requestedBy || '—',
       businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
     });
+    // Persist through the seam (code auto-generated; status defaults to "New Request").
+    try {
+      await api.createFeature({
+        name: v.name, module: v.module, category: v.category, client: v.client,
+        requestDate: '2026-07-28', priority: v.priority || 'Medium', estDevTime: v.estDevTime || '—',
+        businessProblem: v.businessProblem || '', proposedSolution: v.proposedSolution || '',
+        requestedBy: v.requestedBy || '—', functionalConsultant: v.functionalConsultant || '—',
+        projectManager: v.projectManager || '—', developer: v.developer || 'TBD',
+      });
+    } catch (e) {
+      toast.error('Could not save feature', e?.message || 'Request failed');
+    }
     toast.success('Feature registered', v.name);
     setShow(false);
   };

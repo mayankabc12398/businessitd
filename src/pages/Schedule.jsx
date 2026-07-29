@@ -83,17 +83,27 @@ export default function Schedule() {
     projectName: v.projectCode ? ((projects || []).find((x) => x.code === v.projectCode)?.name.split(' — ')[0] || '') : '',
   });
 
-  const submitForm = (v) => {
+  const submitForm = async (v) => {
     const data = normalize(v);
     if (editRow) {
       setActivities((prev) => prev.map((r) => (r.id === editRow.id ? { ...r, ...data } : r)));
       toast.success('Activity updated', data.activity);
-    } else {
+      setFormOpen(false); setEditRow(null);
+      return;
+    }
+    try {
+      await api.createActivity({
+        activity: data.activity, phase: data.phase, clinic: data.clinic, status: data.status,
+        mode: data.mode, days: data.days, startDate: data.startDate, endDate: data.endDate,
+        groupName: data.group, projectCode: data.projectCode,
+      });
       const nextNum = list.reduce((m, r) => Math.max(m, +String(r.id).split('-')[1] || 0), 0) + 1;
       setActivities((prev) => [{ id: `ACT-${String(nextNum).padStart(3, '0')}`, ...data }, ...prev]);
       toast.success('Activity added', data.activity);
+      setFormOpen(false); setEditRow(null);
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
     }
-    setFormOpen(false); setEditRow(null);
   };
 
   const confirmDelete = () => {

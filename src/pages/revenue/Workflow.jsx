@@ -2,9 +2,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Workflow as WorkflowIcon, FileText, ClipboardCheck, Stamp, Code2, FlaskConical, Rocket, Gauge, Share2, ArrowRight } from 'lucide-react';
+import { api } from '../../services/api';
 import { PageHeader, Badge, useToast } from '../../components/ui';
 import { WORKFLOW_STEPS, STATUS_STAGE } from '../../data/revenue';
-import { getFeatures, subscribeFeatures, advanceFeature, ADVANCE_LABEL } from '../../data/featuresStore';
+import { getFeatures, subscribeFeatures, advanceFeature, ADVANCE_LABEL, loadFeatures } from '../../data/featuresStore';
 import { PRIO_TONE } from './_shared';
 
 const STEP_ICON = { request: FileText, review: ClipboardCheck, approve: Stamp, dev: Code2, test: FlaskConical, deploy: Rocket, impact: Gauge, share: Share2 };
@@ -15,7 +16,12 @@ export default function Workflow() {
   const [rows, setRows] = useState(getFeatures);
   useEffect(() => subscribeFeatures(setRows), []);
 
-  const advance = (id) => { const nx = advanceFeature(id); if (nx) toast.success('Feature advanced', nx); };
+  const advance = async (id) => {
+    const nx = advanceFeature(id);
+    if (nx) toast.success('Feature advanced', nx);
+    // Persist the lifecycle advance through the seam (id = feature CODE), then reconcile the store.
+    try { await api.advanceFeature(id); await loadFeatures(); } catch { /* keep optimistic store state */ }
+  };
 
   const byStage = useMemo(() => {
     const map = Object.fromEntries(WORKFLOW_STEPS.map((s) => [s.step, []]));

@@ -9,24 +9,22 @@ import { ROLES } from '../data/team';
 const utilTone = (u) => u >= 90 ? 'danger' : u >= 75 ? 'warning' : 'success';
 
 export default function Team() {
-  const { data: team, loading } = useApi(() => api.getTeam());
+  const { data: team, loading, reload } = useApi(() => api.getTeam());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [tab, setTab] = useState('people');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
 
-  const allTeam = [...extra, ...(team || [])];
+  const allTeam = team || [];
   const projectsFor = (id) => (projects || []).filter((p) => [p.pm, p.fc, p.tc, p.engineer, p.support].includes(id)).length;
 
-  const addMember = (v) => {
-    const roleId = ROLES.find((r) => r.label === v.role)?.id || 'fc';
-    setExtra((prev) => [{
-      id: `U-${String(20 + prev.length)}`, name: v.name, role: v.role, roleId, email: v.email || '—', phone: v.phone || '—',
-      avatarHue: (prev.length + 3) % 12, dept: v.dept || 'Delivery', util: Number(v.util) || 60, active: 0,
-    }, ...prev]);
-    toast.success('Member added', v.name);
-    setShow(false);
+  const addMember = async (v) => {
+    try {
+      await api.createTeamMember({ name: v.name, role: v.role, email: v.email, phone: v.phone, dept: v.dept, util: v.util });
+      toast.success('Member added', v.name);
+      setShow(false);
+      reload();
+    } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
   };
 
   const roleCols = [

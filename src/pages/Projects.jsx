@@ -42,9 +42,9 @@ const BOARD = [
 
 export default function Projects({ initialTab = 'projects' }) {
   const location = useLocation();
-  const { data: projects, loading: pLoading } = useApi(() => api.getProjects());
-  const { data: kpis } = useApi(() => api.getProjectKpis());
-  const { data: clients, loading: cLoading } = useApi(() => api.getClients());
+  const { data: projects, loading: pLoading, reload: reloadProjects } = useApi(() => api.getProjects());
+  const { data: kpis, reload: reloadKpis } = useApi(() => api.getProjectKpis());
+  const { data: clients, loading: cLoading, reload: reloadClients } = useApi(() => api.getClients());
   const { data: team } = useApi(() => api.getTeam());
   const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
   const findUser = (id) => (team || []).find((u) => u.id === id);
@@ -59,13 +59,13 @@ export default function Projects({ initialTab = 'projects' }) {
   const [healthF, setHealthF] = useState('All');
   const [activeProj, setActiveProj] = useState(null);
   const [showNewProj, setShowNewProj] = useState(false);
-  const [extraProj, setExtraProj] = useState([]);
+  const [extraProj] = useState([]);
 
   // ── Clients tab state ──
   const [typeF, setTypeF] = useState('All');
   const [activeClient, setActiveClient] = useState(null);
   const [showClient, setShowClient] = useState(false);
-  const [extraClient, setExtraClient] = useState([]);
+  const [extraClient] = useState([]);
 
   const allProjects = useMemo(() => [...extraProj, ...(projects || [])], [extraProj, projects]);
   const allClients = useMemo(() => [...extraClient, ...(clients || [])], [extraClient, clients]);
@@ -91,43 +91,70 @@ export default function Projects({ initialTab = 'projects' }) {
 
   const filteredClients = useMemo(() => allClients.filter((c) => typeF === 'All' || c.type === typeF), [allClients, typeF]);
 
-  const addProject = (f) => {
-    const start = f.startDate || '2026-07-24';
-    const milestones = LIFECYCLE.map((s, i) => ({
-      key: s.key, label: s.label, tint: s.tint, seq: i + 1, planStart: start, planEnd: f.targetGoLive || start,
-      actualEnd: i === 0 ? start : null, status: i === 0 ? 'Completed' : i === 1 ? 'In Progress' : 'Pending',
-      owner: 'PM', signoff: i === 0 ? 'Signed' : 'Pending',
-    }));
-    const proj = {
-      code: `PRJ-2026-${String(120 + allProjects.length)}`, name: f.name, clientId: f.clientId,
-      category: 'Mid-Market', implType: f.implType, priority: f.priority, status: f.status || 'Planning',
-      contractValue: Number(f.contractValue) || 0, poNumber: f.poNumber || '—', poDate: start,
-      startDate: start, targetGoLive: f.targetGoLive || start, currency: f.currency || 'INR',
-      pm: f.pm || 'U-01', fc: f.fc || 'U-02', tc: 'U-05', engineer: 'U-06', support: 'U-09', salesPerson: 'U-12',
-      currentStage: 'registration', health: 'On Track', riskLevel: 'Low', users: 0,
-      machines: Number(f.machines) || 0, integrationType: f.integrationType || 'None',
-      poDoc: f.poFile || null, otherDoc: f.otherFile || null,
-      modules: f.modules || [], interfaces: f.integrationType && f.integrationType !== 'None' ? [f.integrationType] : [],
+  // module NAME (from the form) -> module code the API resolves (M-OPD, …)
+  const moduleCode = (name) => HIMS_MODULES.find((m) => m.name === name)?.id || name;
+
+  const addProject = async (f) => {
+    const start = f.startDate || undefined;
+    const dto = {
+      name: f.name,
+      clientId: f.clientId, // client code (CL-001) — resolved server-side
+      category: f.category || 'Mid-Market',
+      implementationType: f.implType,
+      priority: f.priority,
+      status: f.status || 'Planning',
+      contractValue: Number(f.contractValue) || 0,
+      currencyCode: f.currency || 'INR',
+      poNumber: f.poNumber || undefined,
+      poDate: start,
+      startDate: start,
+      targetGoLive: f.targetGoLive || undefined,
+      pmId: f.pm || undefined,
+      fcId: f.fc || undefined,
+      currentStage: 'registration',
+      healthStatus: 'On Track',
+      riskLevel: 'Low',
+      usersCount: 0,
       remarks: 'Newly registered project — lifecycle plan auto-generated.',
-      progress: Math.round((1.5 / LIFECYCLE.length) * 100), milestones, milestonesDone: 1, milestonesTotal: milestones.length,
-      expectedCompletion: f.targetGoLive || start, openIssues: 0, pendingSignoffs: 0,
+      modules: (f.modules || []).map(moduleCode),
+      interfaces: f.integrationType && f.integrationType !== 'None' ? [f.integrationType] : [],
     };
-    setExtraProj((prev) => [proj, ...prev]);
-    toast.success('Project registered', `${f.name} · ${proj.code}`);
-    setShowNewProj(false);
+    try {
+      const created = await api.createProject(dto);
+      toast.success('Project registered', `${created?.name || f.name} · ${created?.code || ''}`);
+      setShowNewProj(false);
+      reloadProjects();
+      reloadKpis();
+    } catch (e) {
+      toast.error('Could not register project', e?.message || 'Request failed');
+    }
   };
 
-  const addClient = (v) => {
-    const id = `CL-${String(allClients.length + 1).padStart(3, '0')}`;
-    setExtraClient((prev) => [{
-      id, name: v.name, group: v.group || v.name, type: v.type, country: v.country, state: v.state || '—', city: v.city || '—',
-      beds: Number(v.beds) || 0, branches: Number(v.branches) || 1, gst: v.gst || '—', timezone: '—', currency: (COUNTRIES.find((c) => c.label === v.country)?.currency) || 'INR',
-      since: '2026-07-24', activeProjects: 0, health: 'On Track',
-      contacts: [{ name: v.contactName || 'TBD', title: v.contactTitle || 'Client SPOC', phone: v.phone || '—', email: v.email || '—', primary: true }],
-      escalation: [{ level: 'L1', role: 'Project Manager', name: 'Rahul Sharma', sla: '4 hrs' }],
-    }, ...prev]);
-    toast.success('Client added', `${v.name} · ${id}`);
-    setShowClient(false);
+  const addClient = async (v) => {
+    const dto = {
+      name: v.name,
+      groupName: v.group || v.name,
+      hospitalType: v.type,
+      countryCode: COUNTRIES.find((c) => c.label === v.country)?.code || v.country,
+      state: v.state || undefined,
+      city: v.city || undefined,
+      beds: Number(v.beds) || 0,
+      branches: Number(v.branches) || 1,
+      gst: v.gst || undefined,
+      currencyCode: COUNTRIES.find((c) => c.label === v.country)?.currency || 'INR',
+      since: '2026-07-24',
+      healthStatus: 'On Track',
+      contacts: [{ name: v.contactName || 'TBD', title: v.contactTitle || 'Client SPOC', phone: v.phone || '', email: v.email || '', isPrimary: true }],
+      escalations: [{ level: 'L1', role: 'Project Manager', name: 'Rahul Sharma', sla: '4 hrs' }],
+    };
+    try {
+      const created = await api.createClient(dto);
+      toast.success('Client added', `${created?.name || v.name} · ${created?.code || ''}`);
+      setShowClient(false);
+      reloadClients();
+    } catch (e) {
+      toast.error('Could not add client', e?.message || 'Request failed');
+    }
   };
 
   const projColumns = [

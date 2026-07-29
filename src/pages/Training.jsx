@@ -20,13 +20,13 @@ const calcDuration = (from, to) => {
 };
 
 export default function Training() {
-  const { data: rows, loading } = useApi(() => api.getTraining());
+  const { data: rows, loading, reload } = useApi(() => api.getTraining());
   const { data: kpis } = useApi(() => api.getDeliveryKpis());
   const { data: projects } = useApi(() => api.getProjects());
   const toast = useToast();
   const [proj, setProj] = useState('All');
   const [show, setShow] = useState(false);
-  const [extra, setExtra] = useState([]);
+  const [extra] = useState([]);
   const [selected, setSelected] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [overrides, setOverrides] = useState({}); // id -> edited fields / docs / signoff
@@ -62,18 +62,23 @@ export default function Training() {
     setOverrides((o) => ({ ...o, [activeId]: { ...(o[activeId] || {}), docs } }));
   };
 
-  const addTraining = (v) => {
+  const addTraining = async (v) => {
     const p = (projects || []).find((x) => x.code === v.projectCode);
     const name = p ? p.name.split(' — ')[0] : v.projectCode;
-    setExtra((prev) => [{
-      id: `TRN-${String(allRows.length + 1).padStart(3, '0')}`, projectCode: v.projectCode, projectName: name,
-      dept: v.dept, type: v.type, trainer: v.trainer || 'Ananya Iyer', coordinator: v.coordinator || '—', date: v.date,
-      fromTime: v.fromTime, toTime: v.toTime, durationHrs: v.durationHrs,
-      plannedAttendees: Number(v.plannedAttendees) || 0, attendance: 0, status: 'Scheduled', feedback: null, signoff: '—',
-    }, ...prev]);
-    if (v.sendMail) toast.success('Training scheduled & invite emailed', `${v.dept} · ${name} — sent to ${v.trainer} + department attendees`);
-    else toast.success('Training scheduled', `${v.dept} · ${name}`);
-    setShow(false);
+    try {
+      await api.createTraining({
+        project: v.projectCode, department: v.dept, trainingType: v.type,
+        trainer: v.trainer || 'Ananya Iyer', date: v.date, durationHrs: v.durationHrs,
+        plannedAttendees: Number(v.plannedAttendees) || 0, attendance: 0, status: 'Scheduled',
+        feedback: null, signoff: '—',
+      });
+      if (v.sendMail) toast.success('Training scheduled & invite emailed', `${v.dept} · ${name} — sent to ${v.trainer} + department attendees`);
+      else toast.success('Training scheduled', `${v.dept} · ${name}`);
+      setShow(false);
+      reload();
+    } catch (e) {
+      toast.error('Could not save', e?.message || 'Request failed');
+    }
   };
 
   const columns = [
