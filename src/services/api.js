@@ -193,7 +193,11 @@ export const api = {
   updateSignoff: async (id, v) => governanceApi.updateSignoff(id, await W.signoffDto(v)),
   updateDocument: async (id, v) => governanceApi.updateDocument(id, await W.documentDto(v)),
   // activities & hospital users
-  createActivity: async (v) => activitiesApi.insertActivity(await W.activityDto(v)),
+  createActivity: async (v) => {
+    const dto = await W.activityDto(v);
+    if (!dto.code) dto.code = await activitiesApi.nextActivityCode();
+    return activitiesApi.insertActivity(dto);
+  },
   updateActivity: async (id, v) => activitiesApi.updateActivity(id, await W.activityDto(v)),
   deleteActivity: (id) => activitiesApi.deleteActivity(id),
   createHospitalUser: async (v) => activitiesApi.insertHospitalUser(await W.hospitalUserDto(v)),

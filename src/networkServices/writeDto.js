@@ -133,12 +133,19 @@ export async function trainingDto(v) {
   });
 }
 
-// v: { activity, phase, clinic, status, mode, days, startDate, endDate, groupName, projectCode }
+// v: { activity, phase, clinic, status, mode, days, startDate, endDate, groupName,
+//      projectCode, agenda, participants, nextMeeting }
 export async function activityDto(v) {
+  const w = await getWriteMaps();
   return clean({
-    activity: v.activity, phase: v.phase, clinic: v.clinic, status: v.status || "Pending",
-    mode: v.mode, days: v.days, startDate: v.startDate, endDate: v.endDate,
-    groupName: v.groupName, projectCode: v.projectCode,
+    code: v.code, activity: v.activity, phase: v.phase, clinic: v.clinic,
+    status: v.status || "Pending", mode: v.mode, days: v.days,
+    startDate: v.startDate, endDate: v.endDate, groupName: v.groupName,
+    // kick-off extras (participants may arrive as an array of tags → store CSV)
+    agenda: v.agenda,
+    participants: Array.isArray(v.participants) ? v.participants.join(", ") : v.participants,
+    nextMeeting: v.nextMeeting,
+    projectId: v.projectId ?? pick(w.project, v.projectCode || v.project),
   });
 }
 

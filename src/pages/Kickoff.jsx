@@ -7,7 +7,7 @@ import { useApi } from '../hooks/useApi';
 import { PageHeader, MetricCard, DataTable, Drawer, Modal, Badge, Avatar, DetailRow, ProgressBar, FormDrawer, useToast } from '../components/ui';
 import { fmtDate } from '../utils/format';
 import { HIMS_MODULES } from '../data/masters';
-import { getActivities, subscribeActivities } from '../data/activitiesStore';
+import { getActivities, subscribeActivities, loadActivities } from '../data/activitiesStore';
 
 const money = (n, cur = 'INR') => { try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: cur, maximumFractionDigits: 0, notation: n >= 1e7 ? 'compact' : 'standard' }).format(n); } catch { return `${cur} ${n}`; } };
 const modName = (id) => HIMS_MODULES.find((m) => m.id === id)?.name ?? id;
@@ -91,7 +91,27 @@ export default function Kickoff() {
       </Drawer>
 
       <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"
-        submitLabel="Schedule" onSubmit={(v) => { const p = (projects || []).find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setShow(false); }}
+        submitLabel="Schedule" onSubmit={async (v) => {
+          const p = (projects || []).find((x) => x.code === v.projectCode);
+          try {
+            await api.createActivity({
+              activity: 'Kick-off Meeting',
+              groupName: 'Kick-off',
+              phase: '1',
+              status: 'Scheduled',
+              mode: v.mode || 'On-site',
+              startDate: v.meetingDate,
+              projectCode: v.projectCode,
+              clinic: p ? findClient(p.clientId)?.name : undefined,
+              agenda: v.agenda,
+              participants: v.participants,
+              nextMeeting: v.nextMeeting,
+            });
+            await loadActivities();
+            toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode);
+            setShow(false);
+          } catch (e) { toast.error('Could not schedule', e?.message || 'Request failed'); }
+        }}
         fields={[
           { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name })) },
           { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
@@ -194,6 +214,9 @@ function KickoffModal({ project: p, activities = [], onClose }) {
                             <DetailRow label="End Date">{fmtDate(a.endDate)}</DetailRow>
                             <DetailRow label="Actual Start Date">{a.actualStart ? fmtDate(a.actualStart) : '—'}</DetailRow>
                             <DetailRow label="Actual End Date">{a.actualEnd ? fmtDate(a.actualEnd) : '—'}</DetailRow>
+                            {a.participants && <DetailRow label="Participants">{a.participants}</DetailRow>}
+                            {a.nextMeeting && <DetailRow label="Next Meeting">{fmtDate(a.nextMeeting)}</DetailRow>}
+                            {a.agenda && <DetailRow label="Agenda">{a.agenda}</DetailRow>}
                           </div>
                         </div>
                       )}

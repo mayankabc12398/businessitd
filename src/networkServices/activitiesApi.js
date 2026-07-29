@@ -8,6 +8,17 @@ export const getActivityById = (id) =>
   makeApiRequest(apiUrls.GetActivityById, { method: "get", params: { id } });
 export const insertActivity = (data) =>
   makeApiRequest(apiUrls.InsertActivity, { method: "post", data });
+// Backend requires a non-null Code but has no auto-gen (see BACKEND_WRITE_FIX.md).
+// Until that lands, mint the next ACT-NNN client-side from the existing rows.
+export const nextActivityCode = async () => {
+  const rows = await getActivityList().catch(() => []);
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r?.code || "").match(/(\d+)/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return "ACT-" + String(max + 1).padStart(3, "0");
+};
 export const updateActivity = (id, data) =>
   makeApiRequest(apiUrls.UpdateActivity, { method: "put", params: { id }, data });
 export const deleteActivity = (id) =>

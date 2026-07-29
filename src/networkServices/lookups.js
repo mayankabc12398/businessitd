@@ -140,6 +140,7 @@ export const getWriteMaps = () => {
       fetchList("GetTrainingTypeList"), fetchList("GetRoleList"),
     ]);
     const byName = (r) => r.name;
+    const code = (r) => r.code;
     return {
       severity: toRevMap(severity, byName),      // also used for priority / riskLevel
       health: toRevMap(health, byName),
