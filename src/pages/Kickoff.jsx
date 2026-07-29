@@ -14,6 +14,7 @@ const modName = (id) => HIMS_MODULES.find((m) => m.id === id)?.name ?? id;
 const koStatus = (p) => { const m = p.milestones.find((x) => x.key === 'kickoff'); return m?.status === 'Completed' ? 'Done' : m?.status === 'In Progress' ? 'Scheduled' : 'Pending'; };
 
 export default function Kickoff() {
+  const navigate = useNavigate();
   const { data: projects, loading } = useApi(() => api.getProjects());
   const { data: clients } = useApi(() => api.getClients());
   const { data: team } = useApi(() => api.getTeam());
@@ -21,6 +22,9 @@ export default function Kickoff() {
   const findUser = (id) => (team || []).find((u) => u.id === id);
   const toast = useToast();
   const [active, setActive] = useState(null);
+  // list rows don't carry the module/interface nav arrays — fetch them for the open project
+  const { data: activeModules } = useApi(() => (active ? api.getProjectModules(active.code) : Promise.resolve([])), [active?.code]);
+  const { data: activeInterfaces } = useApi(() => (active ? api.getProjectInterfaces(active.code) : Promise.resolve([])), [active?.code]);
   const [preview, setPreview] = useState(null);
   const [show, setShow] = useState(false);
   const [activities, setActivities] = useState(getActivities);
@@ -58,36 +62,43 @@ export default function Kickoff() {
 
       <DataTable columns={columns} rows={rows} loading={loading} onRowClick={setActive} exportName="scope-kickoff.csv" searchPlaceholder="Search projects, PO numbers…" />
 
-      <Drawer open={!!active} onClose={() => setActive(null)} size="md" title={active?.name} subtitle={active ? `${active.code} · ${findClient(active.clientId)?.name}` : ''}
-        footer={<><button className="btn btn-ghost" onClick={() => setActive(null)}>Close</button><button className="btn btn-primary"><CheckCircle2 size={14} /> Confirm Scope Sign-off</button></>}>
-        {active && (
+      <Drawer open={!!active} onClose={() => setActive(null)} size="md" title={active?.name} subtitle={active ? [active.code, findClient(active.clientId)?.name].filter(Boolean).join(' · ') : ''}
+        footer={<><button className="btn btn-ghost" onClick={() => setActive(null)}>Close</button><button className="btn btn-primary" onClick={() => { navigate(`/signoff?code=${active.code}`); setActive(null); }}><CheckCircle2 size={14} /> Confirm Scope Sign-off</button></>}>
+        {active && (() => {
+          const mods = (activeModules && activeModules.length ? activeModules : active.modules) || [];
+          const ifaces = (activeInterfaces && activeInterfaces.length ? activeInterfaces : active.interfaces) || [];
+          const attendees = [active.pm, active.fc, active.tc].map((id) => findUser(id)).filter(Boolean);
+          const spoc = findClient(active.clientId)?.contacts?.find((c) => c.primary);
+          return (
           <div className="flex-col gap-4">
             <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
               <div className="detail-list">
-                <DetailRow label="PO Number">{active.poNumber}</DetailRow>
+                <DetailRow label="PO Number">{active.poNumber || '—'}</DetailRow>
                 <DetailRow label="PO Date">{fmtDate(active.poDate)}</DetailRow>
                 <DetailRow label="Contract Value">{money(active.contractValue, active.currency)}</DetailRow>
-                <DetailRow label="No. of Users">{active.users}</DetailRow>
-                <DetailRow label="Implementation Type">{active.implType}</DetailRow>
+                <DetailRow label="No. of Users">{active.users ?? '—'}</DetailRow>
+                <DetailRow label="Implementation Type">{active.implType || '—'}</DetailRow>
                 <DetailRow label="Kick-off Status"><Badge tone={koStatus(active) === 'Done' ? 'success' : 'pending'}>{koStatus(active)}</Badge></DetailRow>
               </div>
             </div>
             <div className="card card-pad">
-              <div className="card-title mb-1">Purchased Modules <Badge tone="primary">{active.modules.length}</Badge></div>
-              <div className="flex flex-wrap gap-2 mt-3">{active.modules.map((m) => <Badge key={m} tone="info">{modName(m)}</Badge>)}</div>
+              <div className="card-title mb-1">Purchased Modules <Badge tone="primary">{mods.length}</Badge></div>
+              <div className="flex flex-wrap gap-2 mt-3">{mods.length ? mods.map((m) => <Badge key={m} tone="info">{modName(m)}</Badge>) : <span className="ink-3 t-sm">None</span>}</div>
               <div className="card-title mb-1 mt-4">Interfaces & Third-party Integrations</div>
-              <div className="flex flex-wrap gap-2 mt-2">{active.interfaces.length ? active.interfaces.map((i) => <Badge key={i} tone="neutral">{i}</Badge>) : <span className="ink-3 t-sm">None</span>}</div>
+              <div className="flex flex-wrap gap-2 mt-2">{ifaces.length ? ifaces.map((i) => <Badge key={i} tone="neutral">{i}</Badge>) : <span className="ink-3 t-sm">None</span>}</div>
             </div>
             <div className="card card-pad">
               <div className="card-title mb-3 flex items-center gap-2"><Users size={15} /> Kick-off Attendees</div>
               <div className="flex flex-wrap gap-2">
-                {[active.pm, active.fc, active.tc].map((id) => { const u = findUser(id); return <div key={id} className="flex items-center gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px 4px 4px' }}><Avatar name={u?.name} hue={u?.avatarHue} size="sm" /><span className="t-sm fw-6">{u?.name}</span></div>; })}
-                <div className="flex items-center gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px 4px 4px' }}><Avatar name={findClient(active.clientId)?.contacts.find((c) => c.primary)?.name} hue={6} size="sm" /><span className="t-sm fw-6">{findClient(active.clientId)?.contacts.find((c) => c.primary)?.name} (Client)</span></div>
+                {attendees.map((u) => <div key={u.id} className="flex items-center gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px 4px 4px' }}><Avatar name={u.name} hue={u.avatarHue} size="sm" /><span className="t-sm fw-6">{u.name}</span></div>)}
+                {spoc && <div className="flex items-center gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px 4px 4px' }}><Avatar name={spoc.name} hue={6} size="sm" /><span className="t-sm fw-6">{spoc.name} (Client)</span></div>}
+                {!attendees.length && !spoc && <span className="ink-3 t-sm">No attendees assigned</span>}
               </div>
-              <div className="t-sm ink-2 mt-3" style={{ borderTop: '1px dashed var(--border)', paddingTop: 10 }}><b>MOM:</b> {active.remarks}</div>
+              {active.remarks && <div className="t-sm ink-2 mt-3" style={{ borderTop: '1px dashed var(--border)', paddingTop: 10 }}><b>MOM:</b> {active.remarks}</div>}
             </div>
           </div>
-        )}
+          );
+        })()}
       </Drawer>
 
       <FormDrawer open={show} onClose={() => setShow(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"

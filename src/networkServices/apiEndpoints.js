@@ -18,6 +18,7 @@ export const apiUrls = {
   InsertProject: "Projects/InsertProject",
   UpdateProject: "Projects/UpdateProject",
   DeleteProject: "Projects/DeleteProject",
+  SetOnboardingStep: "Projects/SetOnboardingStep",
   GetProjectModules: "Projects/GetProjectModules",
   SaveProjectModules: "Projects/SaveProjectModules",
   GetProjectInterfaces: "Projects/GetProjectInterfaces",

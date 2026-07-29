@@ -16,6 +16,9 @@ export const updateProject = (code, data) =>
 export const deleteProject = (code) =>
   makeApiRequest(apiUrls.DeleteProject, { method: "delete", params: { code } });
 
+export const setOnboardingStep = (code, step) =>
+  makeApiRequest(apiUrls.SetOnboardingStep, { method: "put", params: { code, step } });
+
 export const getProjectModules = async (code) =>
   toList(await makeApiRequest(apiUrls.GetProjectModules, { method: "get", params: { code } }));
 

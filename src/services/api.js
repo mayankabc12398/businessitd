@@ -157,6 +157,7 @@ export const api = {
   // projects
   createProject: (payload) => projectsApi.insertProject(payload),
   updateProject: (code, payload) => projectsApi.updateProject(code, payload),
+  setOnboardingStep: (code, step) => projectsApi.setOnboardingStep(code, step),
   deleteProject: (code) => projectsApi.deleteProject(code),
   saveProjectModules: (code, moduleIds) => projectsApi.saveProjectModules(code, moduleIds),
   saveProjectInterfaces: (code, names) => projectsApi.saveProjectInterfaces(code, names),

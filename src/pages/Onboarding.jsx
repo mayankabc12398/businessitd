@@ -1,14 +1,14 @@
 // Implementation Onboarding — a guided 3-step wizard that walks a new HIMS
 // engagement from project & client setup → kick-off → deployment & config.
 // Big animated stepper (see .wiz-* in components.css) with slide/fade panels.
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Route, FolderKanban, Handshake, Server, ArrowLeft, ArrowRight, Plus,
   Check, CheckCircle2, Sparkles, Building2, Layers, FileText, Rocket, Users,
   Database, FileSignature, FlaskConical, Bug, ClipboardList,
 } from 'lucide-react';
-import { PageHeader, MetricCard, Badge, Avatar, ProgressBar, FormDrawer, useToast } from '../components/ui';
+import { PageHeader, MetricCard, Badge, Avatar, ProgressBar, FormDrawer, Select, useToast } from '../components/ui';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import { HIMS_MODULES } from '../data/masters';
@@ -35,19 +35,52 @@ const ADD_ACTIONS = ['Add Project', 'Schedule Kick-off', 'Add Build Item', 'Add 
 export default function Onboarding() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { data: projects } = useApi(() => api.getProjects());
+  const { data: projects, reload: reloadProjects } = useApi(() => api.getProjects());
   const { data: clients } = useApi(() => api.getClients());
   const projectOpts = () => (projects || []).filter((p) => p.status !== 'Completed').map((p) => ({ value: p.code, label: p.name }));
+  const [params, setParams] = useSearchParams();
+  const selectedCode = params.get('code') || '';
+  const selectedProject = (projects || []).find((p) => p.code === selectedCode);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState('fwd');
   const [add, setAdd] = useState(false);
+  const [refresh, setRefresh] = useState(0);
 
-  const go = (next) => {
+  // Run a create call, toast, close the form and refresh the active step panel.
+  const submit = async (fn, okTitle, okMsg) => {
+    try {
+      await fn();
+      toast.success(okTitle, okMsg);
+      setAdd(false);
+      setRefresh((r) => r + 1);
+      reloadProjects();
+    } catch (e) { toast.error('Could not save', e?.message || 'Request failed'); }
+  };
+
+  // Rebind the wizard to the project's persisted step after refresh / on select.
+  useEffect(() => {
+    if (selectedProject) {
+      const saved = Number(selectedProject.onboardingStep) || 0;
+      setStep(Math.min(Math.max(saved, 0), STEPS.length - 1));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?.code, selectedProject?.onboardingStep]);
+
+  const selectProject = (code) => setParams(code ? { code } : {}, { replace: true });
+
+  const go = async (next) => {
     if (next === step || next < 0 || next > STEPS.length - 1) return;
     setDir(next > step ? 'fwd' : 'back');
     setStep(next);
+    if (selectedCode) {
+      try { await api.setOnboardingStep(selectedCode, next); } catch { /* offline / pre-restart: keep local */ }
+    }
   };
-  const finish = () => { toast.success('Onboarding complete', 'Opening the projects workspace'); navigate('/projects'); };
+  const finish = async () => {
+    if (selectedCode) { try { await api.setOnboardingStep(selectedCode, STEPS.length - 1); reloadProjects(); } catch { /* non-fatal */ } }
+    toast.success('Onboarding complete', 'Opening the projects workspace');
+    navigate('/projects');
+  };
 
   return (
     <div className="page">
@@ -61,9 +94,17 @@ export default function Onboarding() {
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <div className="flex items-center gap-2 t-sm fw-6 ink-2">
             <Sparkles size={15} style={{ color: 'var(--primary-600)' }} /> Step {step + 1} of {STEPS.length}
+            {selectedProject && <Badge tone="primary">{selectedProject.name.split(' — ')[0]}</Badge>}
           </div>
-          <div className="t-xs ink-3">{Math.round((step / (STEPS.length - 1)) * 100)}% complete</div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div style={{ minWidth: 240 }}>
+              <Select value={selectedCode} onChange={(e) => selectProject(e.target.value)} placeholder="Select a project to track…"
+                options={(projects || []).map((p) => ({ value: p.code, label: p.name }))} />
+            </div>
+            <div className="t-xs ink-3">{Math.round((step / (STEPS.length - 1)) * 100)}% complete</div>
+          </div>
         </div>
+        {!selectedCode && <div className="t-xs ink-3 mb-2">Pick a project above — your progress is saved to that project and restored on refresh.</div>}
         <div className="wiz-rail">
           {STEPS.map((s, i) => {
             const state = i < step ? 'done' : i === step ? 'current' : 'upcoming';
@@ -87,7 +128,7 @@ export default function Onboarding() {
       </div>
 
       {/* ── Panel ───────────────────────────────────────── */}
-      <div className={`wiz-panel ${dir}`} key={step}>
+      <div className={`wiz-panel ${dir}`} key={`${step}-${refresh}`}>
         {step === 0 && <StepProjects />}
         {step === 1 && <StepKickoff />}
         {step === 2 && <StepDeploy />}
@@ -112,7 +153,12 @@ export default function Onboarding() {
       {/* ── Step-aware Add form ──────────────────────────── */}
       {step === 0 && (
         <FormDrawer key="add-project" open={add} onClose={() => setAdd(false)} title="Register New Project" subtitle="Add a hospital project to onboarding"
-          submitLabel="Add Project" onSubmit={(v) => { toast.success('Project added', v.name || 'New project'); setAdd(false); }}
+          submitLabel="Add Project" onSubmit={(v) => submit(() => api.createProject({
+            name: v.name, clientId: v.clientId, implementationType: v.implType, priority: v.priority,
+            targetGoLive: v.targetGoLive, category: 'Mid-Market', status: 'Planning',
+            currentStage: 'registration', healthStatus: 'On Track', riskLevel: 'Low',
+            contractValue: 0, currencyCode: 'INR',
+          }), 'Project added', v.name || 'New project')}
           fields={[
             { name: 'name', label: 'Project Name', required: true, full: true, placeholder: 'e.g. City Care Hospital — HIMS Implementation' },
             { name: 'clientId', label: 'Client / Hospital', type: 'search', required: true, options: (clients || []).map((c) => ({ value: c.id, label: `${c.name} — ${c.city}` })) },
@@ -123,7 +169,10 @@ export default function Onboarding() {
       )}
       {step === 1 && (
         <FormDrawer key="add-kickoff" open={add} onClose={() => setAdd(false)} title="Schedule Kick-off Meeting" subtitle="Capture kick-off meeting details"
-          submitLabel="Schedule" onSubmit={(v) => { const p = (projects || []).find((x) => x.code === v.projectCode); toast.success('Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); setAdd(false); }}
+          submitLabel="Schedule" onSubmit={(v) => { const p = (projects || []).find((x) => x.code === v.projectCode); return submit(() => api.createActivity({
+            activity: 'Kick-off Meeting', groupName: 'Kick-off', phase: '1', status: 'Scheduled',
+            mode: v.mode || 'On-site', startDate: v.meetingDate, projectCode: v.projectCode, agenda: v.agenda,
+          }), 'Kick-off scheduled', p ? p.name.split(' — ')[0] : v.projectCode); }}
           fields={[
             { name: 'projectCode', label: 'Project', type: 'search', required: true, full: true, options: projectOpts() },
             { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
@@ -133,7 +182,9 @@ export default function Onboarding() {
       )}
       {step === 2 && (
         <FormDrawer key="add-deploy" open={add} onClose={() => setAdd(false)} title="Add Build / Config Item" subtitle="Log a development or configuration item"
-          submitLabel="Add Item" onSubmit={(v) => { toast.success('Build item added', v.feature || 'New item'); setAdd(false); }}
+          submitLabel="Add Item" onSubmit={(v) => submit(() => api.createDevItem({
+            feature: v.feature, project: v.projectCode, module: v.module, type: v.type, status: v.status,
+          }), 'Build item added', v.feature || 'New item')}
           fields={[
             { name: 'feature', label: 'Feature / Task', required: true, full: true, placeholder: 'e.g. OP Billing — Insurance workflow' },
             { name: 'projectCode', label: 'Project', type: 'search', required: true, options: projectOpts() },
@@ -144,7 +195,9 @@ export default function Onboarding() {
       )}
       {step === 3 && (
         <FormDrawer key="add-master" open={add} onClose={() => setAdd(false)} title="Add Master Data" subtitle="Request, validate or import a master"
-          submitLabel="Add Master" onSubmit={(v) => { toast.success('Master added', v.master || 'New master'); setAdd(false); }}
+          submitLabel="Add Master" onSubmit={(v) => submit(() => api.createMasterData({
+            project: v.projectCode, masterItem: v.master, owner: v.owner, status: v.status,
+          }), 'Master added', v.master || 'New master')}
           fields={[
             { name: 'master', label: 'Master', required: true, full: true, placeholder: 'e.g. Service Master, Doctor Master, Tariff' },
             { name: 'projectCode', label: 'Project', type: 'search', required: true, options: projectOpts() },
@@ -154,7 +207,9 @@ export default function Onboarding() {
       )}
       {step === 4 && (
         <FormDrawer key="add-srs" open={add} onClose={() => setAdd(false)} title="Schedule SRS" subtitle="Plan a department SRS session"
-          submitLabel="Schedule" onSubmit={(v) => { toast.success('SRS scheduled', v.dept || 'Department'); setAdd(false); }}
+          submitLabel="Schedule" onSubmit={(v) => submit(() => api.createSrsSession({
+            project: v.projectCode, department: v.dept, planned: v.planned, status: v.status,
+          }), 'SRS scheduled', v.dept || 'Department')}
           fields={[
             { name: 'dept', label: 'Department', required: true, full: true, placeholder: 'e.g. Radiology, Pharmacy, OT' },
             { name: 'projectCode', label: 'Project', type: 'search', required: true, options: projectOpts() },
@@ -164,7 +219,9 @@ export default function Onboarding() {
       )}
       {step === 5 && (
         <FormDrawer key="add-uat" open={add} onClose={() => setAdd(false)} title="Add Test Case" subtitle="Log a UAT test module"
-          submitLabel="Add Test Case" onSubmit={(v) => { toast.success('Test case added', v.module || 'New module'); setAdd(false); }}
+          submitLabel="Add Test Case" onSubmit={(v) => submit(() => api.createUatCase({
+            project: v.projectCode, module: v.module, total: v.total, tester: v.tester, status: v.status,
+          }), 'Test case added', v.module || 'New module')}
           fields={[
             { name: 'module', label: 'Module', required: true, full: true, placeholder: 'e.g. OPD Billing, Pharmacy, Lab' },
             { name: 'projectCode', label: 'Project', type: 'search', required: true, options: projectOpts() },
