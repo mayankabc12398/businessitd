@@ -60,10 +60,10 @@ export const apiUrls = {
   InsertTraining: "Delivery/InsertTraining",
   UpdateTraining: "Delivery/UpdateTraining",
   DeleteTraining: "Delivery/DeleteTraining",
-  GetGoLiveReadinessList: "Delivery/GetGoLiveReadinessList",
+  GetGoLiveReadinessList: "Delivery/GetGoliveReadinessList",
   GetLiveImportList: "Delivery/GetLiveImportList",
-  GetParallelGoLiveList: "Delivery/GetParallelGoLiveList",
-  GetFinalGoLiveList: "Delivery/GetFinalGoLiveList",
+  GetParallelGoLiveList: "Delivery/GetParallelGoliveList",
+  GetFinalGoLiveList: "Delivery/GetFinalGoliveList",
 
   // ---------- Governance ----------
   GetIssueList: "Governance/GetIssueList",
