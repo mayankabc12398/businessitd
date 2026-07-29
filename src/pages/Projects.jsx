@@ -517,9 +517,10 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
   const [newClient, setNewClient] = useState(false);
   const [machineForm, setMachineForm] = useState(false);
   const [intForm, setIntForm] = useState(false);
-  const { data: fetchedClients } = useApi(() => api.getClients());
+  const { data: fetchedClients, reload: reloadDrawerClients } = useApi(() => api.getClients());
   const { data: team } = useApi(() => api.getTeam());
-  const [extraClients, setExtraClients] = useState([]); // client-side clients added via "Create Client"
+  const toast = useToast();
+  const [extraClients, setExtraClients] = useState([]); // newly-created clients, shown until the list refetches
   const clients = [...extraClients, ...(fetchedClients || [])];
   const findClient = (id) => clients.find((c) => c.id === id || c.code === id);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
@@ -529,15 +530,40 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
     setModuleOpts((o) => (o.includes(v) ? o : [...o, v]));
     setF((s) => ({ ...s, modules: s.modules.includes(v) ? s.modules : [...s.modules, v] }));
   };
-  const addClient = (v) => {
-    const c = {
-      id: `CL-N${clients.length + 1}`, name: v.name.trim(), group: v.group || v.name.trim(),
-      type: v.type || 'Multi-Specialty', country: v.country || 'India', city: v.city || '', beds: v.beds ? Number(v.beds) : 0,
-      contacts: v.spoc ? [{ name: v.spoc, title: 'Client SPOC', primary: true }] : [], escalation: [],
+  // Persist the new client to the backend, then select it by its real code so
+  // project registration resolves the client (no more "Client 'CL-N…' does not exist").
+  const addClient = async (v) => {
+    const country = COUNTRIES.find((c) => c.label === v.country);
+    const dto = {
+      name: (v.name || '').trim(),
+      groupName: v.group || v.name,
+      hospitalType: v.type || 'Multi-Specialty',
+      countryCode: country?.code || v.country || 'IN',
+      city: v.city || undefined,
+      beds: v.beds ? Number(v.beds) : undefined,
+      currencyCode: country?.currency || 'INR',
+      since: '2026-07-24',
+      healthStatus: 'On Track',
+      contacts: v.spoc ? [{ name: v.spoc, title: 'Client SPOC', isPrimary: true }] : [],
+      escalations: [],
     };
-    setExtraClients((prev) => [c, ...prev]);
-    set('clientId', c.id);
-    setNewClient(false);
+    try {
+      const created = await api.createClient(dto);
+      const code = created?.code || created?.id;
+      setExtraClients((prev) => [{
+        id: code, code, name: created?.name || dto.name, group: dto.groupName,
+        type: dto.hospitalType, country: v.country || 'India', city: v.city || '',
+        beds: dto.beds || 0,
+        contacts: v.spoc ? [{ name: v.spoc, title: 'Client SPOC', primary: true }] : [],
+        escalation: [],
+      }, ...prev]);
+      set('clientId', code);
+      setNewClient(false);
+      reloadDrawerClients();
+      toast.success('Client created', `${dto.name} · ${code}`);
+    } catch (e) {
+      toast.error('Could not create client', e?.message || 'Request failed');
+    }
   };
   const addMachine = (v) => {
     setF((s) => {
@@ -620,8 +646,8 @@ function NewProjectDrawer({ open, onClose, onSaved }) {
       {step === 2 && (
         <div className="flex-col gap-3">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={(team || []).filter((t) => ['pm', 'im'].includes(t.roleId)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
-            <Field label="Functional Consultant"><SearchSelect value={f.fc} onChange={(v) => set('fc', v)} options={(team || []).filter((t) => t.roleId === 'fc').map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a consultant…" /></Field>
+            <Field label="Project Manager"><SearchSelect value={f.pm} onChange={(v) => set('pm', v)} options={(team || []).filter((t) => ['Project Manager', 'Implementation Manager'].includes(t.role)).map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a manager…" /></Field>
+            <Field label="Functional Consultant"><SearchSelect value={f.fc} onChange={(v) => set('fc', v)} options={(team || []).filter((t) => t.role === 'Functional Consultant').map((t) => ({ value: t.id, label: t.name }))} placeholder="Assign a consultant…" /></Field>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Number of Machines"><Input type="number" min="0" value={f.machines} onChange={(e) => set('machines', e.target.value)} placeholder="0" /></Field>

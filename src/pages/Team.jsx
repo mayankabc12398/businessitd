@@ -29,7 +29,7 @@ export default function Team() {
 
   const roleCols = [
     { key: 'label', header: 'Role', render: (r) => <div className="flex items-center gap-2"><span className="metric-icon" style={{ width: 30, height: 30, borderRadius: 8, background: `var(--tint-${r.tint})`, color: `var(--tint-${r.tint}-ink)` }}><ShieldCheck size={14} /></span><span className="fw-6">{r.label}</span></div> },
-    { key: 'members', header: 'Members', align: 'center', accessor: (r) => allTeam.filter((t) => t.roleId === r.id).length, render: (r) => <Badge tone="primary">{allTeam.filter((t) => t.roleId === r.id).length}</Badge> },
+    { key: 'members', header: 'Members', align: 'center', accessor: (r) => allTeam.filter((t) => t.role === r.label).length, render: (r) => <Badge tone="primary">{allTeam.filter((t) => t.role === r.label).length}</Badge> },
     { key: 'perms', header: 'Access Scope', render: () => <span className="t-sm ink-2">Module-scoped RBAC</span> },
   ];
 
