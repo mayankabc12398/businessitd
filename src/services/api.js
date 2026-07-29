@@ -44,6 +44,8 @@ export const api = {
   // projects
   getProjects: () => withMaps(projectsApi.getProjectList(), N.normalizeProjects),
   getProject: (code) => withMaps(projectsApi.getProjectByCode(code), N.normalizeProject),
+  getProjectModules: (code) => projectsApi.getProjectModules(code),
+  getProjectInterfaces: (code) => projectsApi.getProjectInterfaces(code),
   getProjectKpis: async () => d.projectKpis(await api.getProjects()),
 
   // clients

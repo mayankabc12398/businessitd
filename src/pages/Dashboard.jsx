@@ -39,7 +39,10 @@ export default function Dashboard() {
   const { data: upcoming } = useApi(() => api.getUpcoming());
 
   const attention = (projects || []).filter((p) => p.health === 'At Risk' || p.health === 'Delayed');
-  const goLives = (projects || []).filter((p) => p.status !== 'Completed').sort((a, b) => a.targetGoLive.localeCompare(b.targetGoLive)).slice(0, 5);
+  const goLives = (projects || [])
+    .filter((p) => p.status !== 'Completed' && p.targetGoLive)
+    .sort((a, b) => String(a.targetGoLive).localeCompare(String(b.targetGoLive)))
+    .slice(0, 5);
 
   return (
     <div className="page">

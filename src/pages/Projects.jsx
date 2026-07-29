@@ -5,7 +5,7 @@
 // keeps ALL of its original functionality; shared chrome (header, KPI grid,
 // filter card, data table, drawers) is reused per active tab.
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   FolderKanban, Plus, LayoutGrid, Table2, Rocket, ClipboardCheck, AlertTriangle,
   CircleDollarSign, Pencil, Eye, MoreVertical, CheckCircle2, Clock, Ban,
@@ -20,7 +20,7 @@ import {
   Field, Input, Select, SearchSelect, useToast, Chip, Skeleton, FormDrawer,
 } from '../components/ui';
 import { fmtDate } from '../utils/format';
-import { LIFECYCLE, PROJECT_STATUS, PRIORITIES, HEALTH, IMPLEMENTATION_TYPES, INTEGRATION_TYPES, HIMS_MODULES, HOSPITAL_TYPES, COUNTRIES } from '../data/masters';
+import { LIFECYCLE, PROJECT_STATUS, PROJECT_CATEGORY, PRIORITIES, RISK_LEVELS, HEALTH, IMPLEMENTATION_TYPES, INTEGRATION_TYPES, HIMS_MODULES, HOSPITAL_TYPES, COUNTRIES } from '../data/masters';
 
 const money = (n, cur = 'INR') => {
   if (n == null) return '—';
@@ -281,7 +281,7 @@ export default function Projects({ initialTab = 'projects' }) {
       )}
 
       {/* drawers & forms — kept mounted regardless of active tab */}
-      <ProjectDrawer project={activeProj} onClose={() => setActiveProj(null)} />
+      <ProjectDrawer project={activeProj} onClose={() => setActiveProj(null)} onChanged={reloadProjects} />
       <NewProjectDrawer open={showNewProj} onClose={() => setShowNewProj(false)} onSaved={addProject} />
       <ClientDrawer
         client={activeClient}
@@ -349,10 +349,15 @@ function Board({ projects, loading, onOpen }) {
 }
 
 // ---------------- Project detail drawer ----------------
-function ProjectDrawer({ project, onClose }) {
+function ProjectDrawer({ project, onClose, onChanged }) {
   const [tab, setTab] = useState('overview');
+  const [editing, setEditing] = useState(false);
+  const toast = useToast();
+  const navigate = useNavigate();
   const { data: clients } = useApi(() => api.getClients());
   const { data: team } = useApi(() => api.getTeam());
+  const { data: pModules } = useApi(() => (project ? api.getProjectModules(project.code) : Promise.resolve([])), [project?.code]);
+  const { data: pInterfaces } = useApi(() => (project ? api.getProjectInterfaces(project.code) : Promise.resolve([])), [project?.code]);
   const findClient = (id) => (clients || []).find((c) => c.id === id || c.code === id);
   const findUser = (id) => (team || []).find((u) => u.id === id);
   useEffect(() => { if (project) setTab('overview'); }, [project]);
@@ -360,12 +365,51 @@ function ProjectDrawer({ project, onClose }) {
   const p = project;
   const client = findClient(p.clientId);
   const curIdx = LIFECYCLE.findIndex((s) => s.key === p.currentStage);
+  const milestones = p.milestones || [];
+  const modules = (pModules && pModules.length ? pModules : p.modules) || [];
+  const interfaces = (pInterfaces && pInterfaces.length ? pInterfaces : p.interfaces) || [];
+  const loc = [client?.city, client?.country].filter(Boolean).join(', ');
+  const subtitle = [p.code, client?.name, loc].filter(Boolean).join(' · ');
+
+  const saveEdit = async (v) => {
+    const stageKey = LIFECYCLE.find((s) => s.label === v.currentStage)?.key || p.currentStage;
+    const dto = {
+      name: v.name || p.name,
+      clientId: p.clientId,
+      category: v.category || p.category,
+      implementationType: v.implType || p.implType,
+      priority: v.priority || p.priority,
+      status: v.status || p.status,
+      contractValue: Number(v.contractValue) || p.contractValue || 0,
+      currencyCode: p.currency || 'INR',
+      poNumber: p.poNumber || undefined,
+      poDate: p.poDate || undefined,
+      startDate: p.startDate || undefined,
+      targetGoLive: v.targetGoLive || p.targetGoLive || undefined,
+      currentStage: stageKey,
+      healthStatus: v.health || p.health,
+      riskLevel: v.riskLevel || p.riskLevel,
+      usersCount: p.users || 0,
+      remarks: v.remarks ?? p.remarks,
+      pmId: v.pmId || p.pm || undefined, // member code (U-01); backend resolves to numeric id
+      fcId: v.fcId || p.fc || undefined,
+    };
+    try {
+      await api.updateProject(p.code, dto);
+      toast.success('Project updated', p.code);
+      setEditing(false);
+      onChanged?.();
+      onClose();
+    } catch (e) {
+      toast.error('Could not update', e?.message || 'Request failed');
+    }
+  };
 
   return (
     <Drawer open={!!project} onClose={onClose} size="lg" title={p.name}
-      subtitle={`${p.code} · ${client?.name} · ${client?.city}, ${client?.country}`}
+      subtitle={subtitle}
       headerExtra={<Badge tone={healthTone(p.health)}>{p.health}</Badge>}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Close</button><button className="btn btn-outline"><Pencil size={14} /> Edit</button><button className="btn btn-primary"><FileSignature size={14} /> Record Sign-off</button></>}
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Close</button><button className="btn btn-outline" onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button className="btn btn-primary" onClick={() => { onClose(); navigate('/signoff?new=1'); }}><FileSignature size={14} /> Record Sign-off</button></>}
     >
       <div className="mb-4"><Tabs active={tab} onChange={setTab} tabs={[
         { key: 'overview', label: 'Overview' }, { key: 'lifecycle', label: 'Lifecycle' },
@@ -425,18 +469,57 @@ function ProjectDrawer({ project, onClose }) {
 
       {tab === 'lifecycle' && (
         <div className="flex-col gap-4">
-          <div className="card card-pad">
-            <div className="card-title mb-3">Implementation Lifecycle</div>
-            <Stepper current={curIdx} steps={LIFECYCLE.map((s) => ({ title: s.label }))} />
+          <div className="card card-pad lc-track">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
+              <div className="card-title" style={{ margin: 0 }}>Implementation Lifecycle</div>
+              <div className="flex items-center gap-2">
+                <Badge tone={p.health === 'Delayed' ? 'danger' : p.blockedAt ? 'warning' : 'primary'}>Stage {Math.min(curIdx + 1, LIFECYCLE.length)} of {LIFECYCLE.length}</Badge>
+                <Badge tone="success">{milestones.filter((m) => m.status === 'Completed').length} done</Badge>
+              </div>
+            </div>
+            <div className="t-sm ink-3 mb-3">Currently at <b className="ink-1">{LIFECYCLE[curIdx]?.label}</b></div>
+            <div className="lc-bar mb-4"><div className="lc-bar-fill" style={{ width: `${p.progress}%` }} /></div>
+            <div className="lc-grid">
+              {LIFECYCLE.map((s, i) => {
+                const st = milestones[i]?.status || (i < curIdx ? 'Completed' : i === curIdx ? 'In Progress' : 'Pending');
+                const state = st === 'Completed' ? 'done' : st === 'Blocked' ? 'blocked' : i === curIdx ? 'current' : 'pending';
+                return (
+                  <div key={s.key} className={`lc-node lc-${state}`}>
+                    <span className="lc-dot">{state === 'done' ? '✓' : state === 'blocked' ? '!' : i + 1}</span>
+                    <span className="lc-label">{s.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <div className="card card-pad">
             <div className="card-title mb-3">Stage Timeline</div>
-            <Timeline items={p.milestones.map((m) => ({
+            <Timeline items={milestones.map((m) => ({
               title: `${m.seq}. ${m.label}`,
               time: m.status === 'Completed' ? `Completed ${fmtDate(m.actualEnd)}` : m.status === 'In Progress' ? `In progress · due ${fmtDate(m.planEnd)}` : m.status === 'Blocked' ? `Blocked · planned ${fmtDate(m.planEnd)}` : `Planned ${fmtDate(m.planStart)} – ${fmtDate(m.planEnd)}`,
               color: m.status === 'Completed' ? 'var(--success)' : m.status === 'In Progress' ? 'var(--primary)' : m.status === 'Blocked' ? 'var(--danger)' : 'var(--border-strong)',
             }))} />
           </div>
+          <style>{`
+            .lc-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+            .lc-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--primary),var(--success));transition:width 900ms var(--ease)}
+            .lc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
+            .lc-node{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+            .lc-node:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+            .lc-dot{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;border:2px solid var(--border-strong);color:var(--text-3);background:var(--surface)}
+            .lc-label{font-size:12.5px;font-weight:600;line-height:1.25;color:var(--text-2)}
+            .lc-done{border-color:color-mix(in srgb,var(--success) 40%,var(--border))}
+            .lc-done .lc-dot{background:var(--success);border-color:var(--success);color:#fff}
+            .lc-done .lc-label{color:var(--text-1)}
+            .lc-current{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,var(--surface))}
+            .lc-current .lc-dot{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 22%,transparent);animation:lcPulse 1.8s var(--ease) infinite}
+            .lc-current .lc-label{color:var(--text-1);font-weight:700}
+            .lc-blocked{border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+            .lc-blocked .lc-dot{background:var(--danger);border-color:var(--danger);color:#fff}
+            .lc-blocked .lc-label{color:var(--text-1)}
+            @keyframes lcPulse{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 22%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--primary) 8%,transparent)}}
+            @media (prefers-reduced-motion:reduce){.lc-current .lc-dot{animation:none}}
+          `}</style>
         </div>
       )}
 
@@ -445,7 +528,7 @@ function ProjectDrawer({ project, onClose }) {
           <table className="data-table">
             <thead><tr><th style={{ width: 40 }}>#</th><th>Milestone</th><th>Owner</th><th>Planned</th><th>Status</th><th>Sign-off</th></tr></thead>
             <tbody>
-              {p.milestones.map((m) => (
+              {milestones.map((m) => (
                 <tr key={m.key}>
                   <td className="mono ink-3">{m.seq}</td>
                   <td className="fw-6">{m.label}</td>
@@ -477,13 +560,30 @@ function ProjectDrawer({ project, onClose }) {
             </div>
           </div>
           <div className="card card-pad">
-            <div className="card-title mb-1">Purchased Modules <Badge tone="primary">{p.modules.length}</Badge></div>
-            <div className="flex flex-wrap gap-2 mt-3">{p.modules.map((m) => <Badge key={m} tone="info">{modName(m)}</Badge>)}</div>
+            <div className="card-title mb-1">Purchased Modules <Badge tone="primary">{modules.length}</Badge></div>
+            <div className="flex flex-wrap gap-2 mt-3">{modules.map((m) => <Badge key={m} tone="info">{modName(m)}</Badge>)}</div>
             <div className="card-title mb-1 mt-4">Interfaces & Integrations</div>
-            <div className="flex flex-wrap gap-2 mt-2">{p.interfaces.length ? p.interfaces.map((i) => <Badge key={i} tone="neutral">{i}</Badge>) : <span className="ink-3 t-sm">None</span>}</div>
+            <div className="flex flex-wrap gap-2 mt-2">{interfaces.length ? interfaces.map((i) => <Badge key={i} tone="neutral">{i}</Badge>) : <span className="ink-3 t-sm">None</span>}</div>
           </div>
         </div>
       )}
+      <FormDrawer open={editing} onClose={() => setEditing(false)} title="Edit Project" subtitle={`Update ${p.code}`}
+        submitLabel="Save Changes" onSubmit={saveEdit}
+        fields={[
+          { name: 'name', label: 'Project Name', full: true, default: p.name },
+          { name: 'category', label: 'Category', type: 'select', default: p.category, options: PROJECT_CATEGORY },
+          { name: 'implType', label: 'Implementation Type', type: 'select', default: p.implType, options: IMPLEMENTATION_TYPES },
+          { name: 'priority', label: 'Priority', type: 'select', default: p.priority, options: PRIORITIES },
+          { name: 'status', label: 'Status', type: 'select', default: p.status, options: PROJECT_STATUS },
+          { name: 'health', label: 'Health', type: 'select', default: p.health, options: HEALTH },
+          { name: 'riskLevel', label: 'Risk Level', type: 'select', default: p.riskLevel, options: RISK_LEVELS },
+          { name: 'currentStage', label: 'Current Stage', type: 'select', default: LIFECYCLE[curIdx]?.label, options: LIFECYCLE.map((s) => s.label) },
+          { name: 'pmId', label: 'Project Manager', type: 'select', default: p.pm, placeholder: 'Assign a manager…', options: (team || []).filter((t) => ['Project Manager', 'Implementation Manager'].includes(t.role)).map((t) => ({ value: t.id, label: t.name })) },
+          { name: 'fcId', label: 'Functional Consultant', type: 'select', default: p.fc, placeholder: 'Assign a consultant…', options: (team || []).filter((t) => t.role === 'Functional Consultant').map((t) => ({ value: t.id, label: t.name })) },
+          { name: 'contractValue', label: 'Contract Value', type: 'number', default: p.contractValue },
+          { name: 'targetGoLive', label: 'Target Go-Live', type: 'date', default: p.targetGoLive },
+          { name: 'remarks', label: 'Remarks', type: 'textarea', full: true, rows: 3, default: p.remarks },
+        ]} />
       <style>{`@media (max-width: 720px){ .drawer-two{ grid-template-columns:1fr !important; } }`}</style>
     </Drawer>
   );

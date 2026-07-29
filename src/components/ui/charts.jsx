@@ -40,6 +40,8 @@ export function ChartLegend({ items }) {
 // data: [{label, ...seriesKeys}]; series: [{key, label, color?}]
 export function BarChart({ data, series, height = 220, formatValue = (v) => v, showLegend = true, barRadius = 4 }) {
   const { show, hide, node } = useTooltip();
+  if (!Array.isArray(data) || data.length === 0)
+    return <div className="flex items-center justify-center t-sm ink-3" style={{ height }}>No data yet</div>;
   const W = 600, H = height, padL = 34, padB = 24, padT = 10;
   const max = Math.max(...data.flatMap((d) => series.map((s) => d[s.key] ?? 0)), 1);
   const niceMax = max * 1.15;
@@ -97,6 +99,7 @@ export function LineChart({ data, series, height = 220, formatValue = (v) => v, 
   const { show, hide, node } = useTooltip();
   const [hoverI, setHoverI] = useState(null);
   const svgRef = useRef(null);
+  const empty = !Array.isArray(data) || data.length === 0;
   const W = 600, H = height, padL = 36, padB = 22, padT = 10, padR = 10;
   const allVals = data.flatMap((d) => series.map((s) => d[s.key] ?? 0));
   const max = Math.max(...allVals, 1) * 1.1;
@@ -104,11 +107,11 @@ export function LineChart({ data, series, height = 220, formatValue = (v) => v, 
   const x = (i) => padL + (i * (W - padL - padR)) / Math.max(1, data.length - 1);
   const y = (v) => padT + (H - padB - padT) * (1 - (v - min) / (max - min || 1));
 
-  const paths = useMemo(() => series.map((s) => {
+  const paths = useMemo(() => (empty ? [] : series.map((s) => {
     const pts = data.map((d, i) => `${x(i)},${y(d[s.key] ?? 0)}`);
     return { line: `M${pts.join(' L')}`, area: `M${pts.join(' L')} L${x(data.length - 1)},${H - padB} L${x(0)},${H - padB} Z` };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [data, series, height]);
+  })), [data, series, height, empty]);
 
   const onMove = (e) => {
     const rect = svgRef.current.getBoundingClientRect();
@@ -118,6 +121,8 @@ export function LineChart({ data, series, height = 220, formatValue = (v) => v, 
     setHoverI(ci);
     show(e, { title: data[ci].label, rows: series.map((s, si) => ({ label: s.label, value: formatValue(data[ci][s.key] ?? 0), color: s.color ?? CHART_COLORS[si] })) });
   };
+
+  if (empty) return <div className="flex items-center justify-center t-sm ink-3" style={{ height }}>No data yet</div>;
 
   return (
     <div>
@@ -211,6 +216,7 @@ export function DonutChart({ data, size = 168, thickness = 22, formatValue = (v)
 
 // ---------- Sparkline ----------
 export function Sparkline({ values, color = 'var(--chart-1)', width = 110, height = 34, area = true }) {
+  if (!Array.isArray(values) || values.length === 0) return <svg viewBox={`0 0 ${width} ${height}`} style={{ width, height }} />;
   const max = Math.max(...values, 1), min = Math.min(...values, 0);
   const x = (i) => (i * (width - 4)) / Math.max(1, values.length - 1) + 2;
   const y = (v) => 3 + (height - 8) * (1 - (v - min) / (max - min || 1));

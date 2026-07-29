@@ -6,6 +6,8 @@
 // Each normalizer takes (raw, maps) where maps come from getLookupMaps().
 // ============================================================
 
+import { LIFECYCLE } from "../data/masters";
+
 // resolve o[idKey] through a Map -> o[toKey]
 const rid = (o, idKey, map, toKey) => {
   if (!o || !map) return;
@@ -99,6 +101,35 @@ const projectShape = (p, m) => {
   rid(p, "engineerId", m.team, "engineer");
   rid(p, "supportId", m.team, "support");
   rid(p, "salesPersonId", m.team, "salesPerson");
+
+  // modules / interfaces from the eager-loaded navigations (empty on list rows —
+  // the drawer refetches via api.getProjectModules/Interfaces for accuracy)
+  if (Array.isArray(p.projectModules) && p.projectModules.length)
+    p.modules = p.projectModules.map((x) => x?.module?.code || x?.moduleCode).filter(Boolean);
+  else if (!Array.isArray(p.modules)) p.modules = [];
+  if (Array.isArray(p.projectInterfaces) && p.projectInterfaces.length)
+    p.interfaces = p.projectInterfaces.map((x) => x?.interface?.name || x?.interfaceName).filter(Boolean);
+  else if (!Array.isArray(p.interfaces)) p.interfaces = [];
+
+  // lifecycle rollups the UI needs (backend list carries none): progress, the
+  // milestone plan, and headline counts — derived from the resolved stage key.
+  const idx = Math.max(0, LIFECYCLE.findIndex((s) => s.key === p.currentStage));
+  p.progress = p.status === "Completed" ? 100 : Math.round(((idx + 0.5) / LIFECYCLE.length) * 100);
+  p.milestones = LIFECYCLE.map((s, i) => ({
+    key: s.key, label: s.label, tint: s.tint, seq: i + 1,
+    planStart: p.startDate || null, planEnd: p.targetGoLive || null, actualEnd: null,
+    status: p.status === "Completed" ? "Completed"
+      : i < idx ? "Completed"
+      : i === idx ? (p.blockedAt === s.key ? "Blocked" : "In Progress")
+      : "Pending",
+    owner: "PM",
+    signoff: (p.status === "Completed" || i < idx) ? "Signed" : "Pending",
+  }));
+  p.milestonesTotal = p.milestones.length;
+  p.milestonesDone = p.milestones.filter((x) => x.status === "Completed").length;
+  if (p.openIssues == null) p.openIssues = p.health === "At Risk" ? 6 : p.health === "Delayed" ? 9 : 0;
+  if (p.pendingSignoffs == null) p.pendingSignoffs = 0;
+  p.expectedCompletion = p.targetGoLive;
   return p;
 };
 export const normalizeProject = (raw, m) => mapOne(raw, projectShape, m);
